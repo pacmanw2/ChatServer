@@ -26,7 +26,7 @@ typedef int bool;
 void *receive_message();
 void *send_message();
 
-int sock, sk;
+int sock;
 int list[3];
 
 //inspired by StackOverflow
@@ -45,7 +45,7 @@ void *receive_message() // void *receive_message
         if(!rec){
             puts("Connection to server was lost!\n");
             puts("Ctrl + C to exit\n");
-            close(sk);
+            close(sock);
             return NULL;
         }
 
@@ -82,11 +82,9 @@ int main(int argc , char *argv[])
     pthread_t thread_send, thread_recv;
 
     // (1) Create socket
-    //int sk;
-    sk = socket(AF_INET , SOCK_STREAM , 0); //crash 1-22-17
-    sock = sk;
+    sock = socket(AF_INET , SOCK_STREAM , 0); 
 
-    if (sk == -1)
+    if (sock == -1)
     {
         printf("Could not create socket");
     }
@@ -96,19 +94,20 @@ int main(int argc , char *argv[])
     server.sin_port = htons( port );
 
     // (2) Connect to remote server
-    if (connect(sk , (struct sockaddr *)&server , sizeof(server)) < 0)
+    if (connect(sock , (struct sockaddr *)&server , sizeof(server)) < 0)
     {
         perror("connect failed. Error");
         exit(1);
     }
     puts("connections success");
 
+    //create threads
     pthread_create(&thread_send, NULL, send_message, NULL);
     pthread_create(&thread_recv, NULL, receive_message, NULL);
 
     while(1);	
  
     printf("Goodbye. . .\n");
-    close(sk); 
+    close(sock); 
     pthread_exit(NULL);
 }

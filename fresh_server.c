@@ -16,46 +16,43 @@
 
 //#define *recvPtr
 //#define *clientPtr
+#define MAX_BUFF 1024
 
 
-int client_socket; 
+int client_socket[3]; 
 int socket_dh; //socket descriptor
-int ara[3];
+int server_Q[3]; //server queue 
 
-//int checkWord(char *msg, char *ePtr);
+
 void *receive_message();
 void *send_message();
 
-/*
-int checkWord(char *msg, char *ePtr)
-{
-    int i = 0, key = 0;
-    for(i = 0; i < 3; i++){
-        if(msg[i] == ePtr[i])
-            key++;
-    }
-    return key;
-}
-*/
 
-void *receive_message() //void *
+void *receive_message() 
 {
-    char recv_buf[1024];
+    char recv_buf[MAX_BUFF];
+    int rec;
     while(1){
 
         //char id[] = "<client>: ";
-        int i;
+        int i, bytesRead;
+        bytesRead = 0;
         for(i = 0; i < 2; i++){
-            int rec = recv(client_socket[i], recv_buf, 1024, 0);
+            rec = recv(client_socket[i], recv_buf, MAX_BUFF, 0);
+            //rec = read(client_socket[i], recv_buf - bytesRead, MAX_BUFF - bytesRead);
+            printf(">>> %i\n", rec);
+
+            //check if connection has been lost
+            if(rec == 0){
+                
+                puts("Connection to client was lost!\n");
+                close(socket_dh);
+                return NULL;    
+            }
+            bytesRead += rec;
         }
 
-        //check if connection has been lost
-        if(!rec){
-            puts("Connection to client was lost!\n");
-            puts("Ctrl + C to exit\n");
-            close(socket_dh);
-            return NULL;
-        }
+        
 
         //strcat(recv_buf, id);
         printf("<client>: %s", recv_buf);
@@ -66,8 +63,9 @@ void *receive_message() //void *
 
 void *send_message()
 {
-    char client_str[1024];
-    int i;
+    char client_str[MAX_BUFF];
+    int i, bytesRead;
+    bytesRead = 0;
     while(1){
 
         //char id[] = "<server>: ";
@@ -77,7 +75,7 @@ void *send_message()
         //strcat(client_str, id);
         //strcat(client_str, tab);
         for(i = 0; i < 3; i++){
-            int send_status = send(ara[i], client_str, 1024, 0);    
+            int send_status = send(server_Q[i], client_str - bytesRead, MAX_BUFF - bytesRead, 0);    
         }
         
         memset(client_str, 0, sizeof(client_str) );
@@ -122,11 +120,11 @@ int main(void)
     struct sockaddr_in client_addr;
 
     int i = 0;
-    for(;;){
+    do{
 
         // (4) accept connection 
-        client_socket = accept(socket_dh, (struct sockaddr *)&client_addr,(socklen_t*)&client_socket); 
-        if(client_socket == -1){
+        client_socket[i] = accept(socket_dh, (struct sockaddr *)&client_addr,(socklen_t*)&client_socket[i]); 
+        if(client_socket[i] == -1){
             sleep(5);
         }
         else{
@@ -134,15 +132,16 @@ int main(void)
                 puts("Too many clients!");
                 break;
             }
-            printf("connection established with client discriptor %d\n", client_socket); 
-            ara[i] = client_socket;
-            //create Threads
-            pthread_create(&client_list[i], NULL, send_message, NULL);
-            pthread_create(&client_list[i], NULL, receive_message, NULL);
-            i++;
+            else{
+                printf("connection established with client discriptor %d\n", client_socket[i]); 
+                server_Q[i] = client_socket[i];
+                //create Threads
+                pthread_create(&client_list[i], NULL, send_message, NULL);
+                pthread_create(&client_list[i], NULL, receive_message, NULL);
+                i++;    
+            }
         }
-
-    }
+    }while(i < 2);
 
     
 
