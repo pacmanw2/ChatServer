@@ -82,9 +82,18 @@ void *send_message()
     }
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
-
+    int port = 8888;
+    
+    /* Checks for an argument to be used as a port - uses 8888 by default */
+    if (argc == 2)
+    {
+        int port = atoi(argv[1]);
+        printf("Setting port to: %d\n", port);
+    }
+    
+    
     //int socket_dh; // the socket discriptor
     struct sockaddr_in server; // struct of type sockaddr_in 
 
