@@ -3,8 +3,9 @@
  */
 
 /* HOW TO RUN
-* ./runName 
+* ./runName PORT(optional)
 */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,17 +17,35 @@
 
 //#define *recvPtr
 //#define *clientPtr
+
 #define MAX_BUFF 1024
 
+/* Global Variables */
 
-int client_socket[3]; 
+int client_socket[3]; //list of clients
 int socket_dh; //socket descriptor
-int server_Q[3]; //server queue 
+int server_Q[3]; //server queue for clients trying to connect
 
+
+/* Prototypes */
 
 void *receive_message();
 void *send_message();
+int messageProcessor(void* input);
 
+
+/* Struct for a client */
+
+struct client{
+    char userName[20];
+    int socket;
+    char ip_addr[20];
+};
+
+
+
+/******************************** RECEIVE ****************************/
+/*********************************************************************/
 
 void *receive_message() 
 {
@@ -41,7 +60,7 @@ void *receive_message()
             rec = recv(client_socket[i], recv_buf, MAX_BUFF, 0);
             //rec = read(client_socket[i], recv_buf - bytesRead, MAX_BUFF - bytesRead);
             printf(">>> %i\n", rec);
-
+            
             //check if connection has been lost
             if(rec == 0){
                 
@@ -49,18 +68,28 @@ void *receive_message()
                 close(socket_dh);
                 return NULL;    
             }
+            
             bytesRead += rec;
         }
 
         
-
+        messageProcessor(recv_buf);
+        
+        
+        
+        
+        /* This is the old receive message block.  Keeping it just in case *
         //strcat(recv_buf, id);
         printf("<client>: %s", recv_buf);
         //recv_buf[0] = '\0';
         memset(recv_buf, 0, sizeof(recv_buf) );
+        * */
     }
 }
 
+
+/******************************** SEND *******************************/
+/*********************************************************************/
 void *send_message()
 {
     char client_str[MAX_BUFF];
@@ -81,6 +110,10 @@ void *send_message()
         memset(client_str, 0, sizeof(client_str) );
     }
 }
+
+
+/******************************** MAIN *******************************/
+/*********************************************************************/
 
 int main(int argc, char *argv[])
 {
@@ -111,7 +144,7 @@ int main(int argc, char *argv[])
     /* INADDR_ANY means that we will use any ip address local to this computer for example
      * localhost, loopback or 127.0.0.1. (0.0.0.0) == anyadress */
     server.sin_addr.s_addr = INADDR_ANY; 
-    server.sin_port = htons( 8888 ); // port 8888 will be used
+    server.sin_port = htons(port);
 
     // (2) bind
     int stat;
@@ -160,6 +193,13 @@ int main(int argc, char *argv[])
 
 
 
+/************ Process Data from Clients ***********/
+int messageProcessor(void* input)
+{
+    
+    
+    return 0;
+}
 
 
 
