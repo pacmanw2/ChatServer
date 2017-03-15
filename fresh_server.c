@@ -18,21 +18,17 @@
 //#define *recvPtr
 //#define *clientPtr
 
-#define MAX_BUFF 1024
-
-/* Global Variables */
-
-int client_socket[3]; //list of clients
-int socket_dh; //socket descriptor
-int server_Q[3]; //server queue for clients trying to connect
+#define MAX_BUFF 2000000    //2MB buffer :)
 
 
 /* Prototypes */
 
 void *receive_message();
 void *send_message();
-int messageProcessor(void* input);
+int messageProcessor(int bytesRead, char* input);
 
+
+/* Structs */
 
 /* Struct for a client */
 
@@ -42,6 +38,19 @@ struct client{
     char ip_addr[20];
 };
 
+/* Struct for a room */
+
+struct room{
+    char name[20];  //name of Room
+    char userList[20][20];  //an array of userNames in the room
+};
+
+/* Global Variables */
+
+struct client clientList[3]; //list of clients
+struct room roomList[3];    //list of rooms
+int socket_dh;  //socket descriptor
+int server_Q[3];    //server queue for clients trying to connect
 
 
 /******************************** RECEIVE ****************************/
@@ -57,8 +66,8 @@ void *receive_message()
         int i, bytesRead;
         bytesRead = 0;
         for(i = 0; i < 2; i++){
-            rec = recv(client_socket[i], recv_buf, MAX_BUFF, 0);
-            //rec = read(client_socket[i], recv_buf - bytesRead, MAX_BUFF - bytesRead);
+            rec = recv(clientList[i].socket, recv_buf, MAX_BUFF, 0);
+            //rec = read(clientList[i].socket, recv_buf - bytesRead, MAX_BUFF - bytesRead);
             printf(">>> %i\n", rec);
             
             //check if connection has been lost
@@ -73,7 +82,9 @@ void *receive_message()
         }
 
         
-        messageProcessor(recv_buf);
+        /* THere should be a # bytesRead checker here to make sure its over 30 or something */ 
+        
+        messageProcessor(bytesRead, recv_buf);
         
         
         
@@ -90,6 +101,8 @@ void *receive_message()
 
 /******************************** SEND *******************************/
 /*********************************************************************/
+/* might not even need a separate SEND thread */
+
 void *send_message()
 {
     char client_str[MAX_BUFF];
@@ -165,8 +178,8 @@ int main(int argc, char *argv[])
     do{
 
         // (4) accept connection 
-        client_socket[i] = accept(socket_dh, (struct sockaddr *)&client_addr,(socklen_t*)&client_socket[i]); 
-        if(client_socket[i] == -1){
+        clientList[i].socket = accept(socket_dh, (struct sockaddr *)&client_addr,(socklen_t*)&(clientList[i].socket)); 
+        if(clientList[i].socket == -1){
             sleep(5);
         }
         else{
@@ -175,12 +188,18 @@ int main(int argc, char *argv[])
                 break;
             }
             else{
-                printf("connection established with client discriptor %d\n", client_socket[i]); 
-                server_Q[i] = client_socket[i];
+                printf("connection established with client discriptor %d\n", clientList[i].socket); 
+                server_Q[i] = clientList[i].socket;
                 //create Threads
                 pthread_create(&client_list[i], NULL, send_message, NULL);
                 pthread_create(&client_list[i], NULL, receive_message, NULL);
-                i++;    
+                i++;  
+                
+                /* Also we should populate the rest of the client struct in the clientlist,
+                 * with stuff like IP address and a random username maybe. */
+                 
+                 /* Maybe shove them into a default chat room as well */
+                  
             }
         }
     }while(i < 2);
@@ -193,9 +212,55 @@ int main(int argc, char *argv[])
 
 
 
-/************ Process Data from Clients ***********/
-int messageProcessor(void* input)
+/******************** Process Data from Clients ***********************/
+
+int messageProcessor(int bytesRead, char* input)
 {
+    //'bytesRead' is basically the end of message (EOM) index
+    //'input' is the pointer to the char[] buffer
+    
+    char cmd;
+    char option[25];
+    char sizeArray[10];
+    int size;
+    
+    
+    /* Command - 1st byte */
+    cmd = input[0];
+    
+    /* Option - next 20 bytes */
+    int i, k;
+    for (i = 1, k = 0; i < 21; i++, k++)
+    {
+        option[k] = input[i];
+    }
+    option[k] = '\0';
+    
+    /* Size - next 8 bytes */
+    for (i = 21, k = 0; i < 28; i++, k++)
+    {
+        sizeArray[k] = input[i];
+    }
+    sizeArray[k] = '\0';
+    size = atoi(sizeArray);
+    
+    
+    /* Message | File - up to the next 100KB */
+    
+    //need to figure that one out.  A different array to dump the buffer into?
+    
+    switch(cmd)
+    {
+        case 't':
+            printf("TEST Successful. Option: %s", option);
+            break;
+        
+        
+        default:
+            printf("ERROR: COMMAND NOT RECOGNIZED.");
+            break;
+    }
+
     
     
     return 0;
