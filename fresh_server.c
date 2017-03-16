@@ -1,4 +1,6 @@
-/* Marco Gallegos 
+/* Marco Gallegos
+ * Remington Bonawitz
+ * Luis Alvarez
  * Eastern Washington University 
  */
 
@@ -19,35 +21,39 @@
 //#define *clientPtr
 
 #define MAX_BUFF 2000000    //2MB buffer :)
+#define CLIENT_LIMIT 10     //10 clients for now
 
 
-/* Prototypes */
+/******** Prototypes ********/
 
 void *receive_message();
 void *send_message();
 int messageProcessor(int bytesRead, char* input);
+int sendMessage(int socket, int bytesRead, char* input);
 
 
-/* Structs */
+/******** Structs ********/
 
 /* Struct for a client */
 
 struct client{
-    char userName[20];
-    int socket;
-    char ip_addr[20];
+    char userName[20];  //username picked by client
+    int socket;     //socket client is using
+    char ip_addr[20];   //ip address of client
+    int connected;  // boolean for connected status
 };
 
 /* Struct for a room */
 
 struct room{
     char name[20];  //name of Room
-    char userList[20][20];  //an array of userNames in the room
+    char userList[CLIENT_LIMIT][20];  //an array of userNames in the room
+    int maxOccupancy;
 };
 
-/* Global Variables */
+/******** Global Variables ********/
 
-struct client clientList[3]; //list of clients
+struct client clientList[CLIENT_LIMIT]; //list of clients
 struct room roomList[3];    //list of rooms
 int socket_dh;  //socket descriptor
 int server_Q[3];    //server queue for clients trying to connect
@@ -68,7 +74,7 @@ void *receive_message()
         for(i = 0; i < 2; i++){
             rec = recv(clientList[i].socket, recv_buf, MAX_BUFF, 0);
             //rec = read(clientList[i].socket, recv_buf - bytesRead, MAX_BUFF - bytesRead);
-            printf(">>> %i\n", rec);
+            //printf(">>> %i\n", rec);
             
             //check if connection has been lost
             if(rec == 0){
@@ -83,8 +89,9 @@ void *receive_message()
 
         
         /* THere should be a # bytesRead checker here to make sure its over 30 or something */ 
-        
+
         messageProcessor(bytesRead, recv_buf);
+
         
         
         
@@ -124,6 +131,17 @@ void *send_message()
     }
 }
 
+/***************** SEND A MESSAGE TO A CLIENT *************************
+ *********************************************************************/
+
+int sendMessage(int socket, int bytesRead, char* input)
+{
+    int status;
+    status = send(socket, input, bytesRead, 0);
+    printf("bytes sent: %d \n", status);    //debugging purposes
+    return 0;
+}
+
 
 /******************************** MAIN *******************************/
 /*********************************************************************/
@@ -135,7 +153,7 @@ int main(int argc, char *argv[])
     /* Checks for an argument to be used as a port - uses 8888 by default */
     if (argc == 2)
     {
-        int port = atoi(argv[1]);
+        port = atoi(argv[1]);
         printf("Setting port to: %d\n", port);
     }
     
@@ -145,7 +163,7 @@ int main(int argc, char *argv[])
 
     //create threads
     pthread_t thread_send, thread_recv;
-    pthread_t client_list[3];
+    pthread_t client_list[CLIENT_LIMIT];
 
     // (1) create socket
     socket_dh = socket(AF_INET, SOCK_STREAM, 0);
@@ -179,11 +197,12 @@ int main(int argc, char *argv[])
 
         // (4) accept connection 
         clientList[i].socket = accept(socket_dh, (struct sockaddr *)&client_addr,(socklen_t*)&(clientList[i].socket)); 
+        clientList[i].connected = 1;    //flag client as connected
         if(clientList[i].socket == -1){
             sleep(5);
         }
         else{
-            if(i == 2){
+            if(i == CLIENT_LIMIT){
                 puts("Too many clients!");
                 break;
             }
@@ -191,7 +210,7 @@ int main(int argc, char *argv[])
                 printf("connection established with client discriptor %d\n", clientList[i].socket); 
                 server_Q[i] = clientList[i].socket;
                 //create Threads
-                pthread_create(&client_list[i], NULL, send_message, NULL);
+                //pthread_create(&client_list[i], NULL, send_message, NULL);
                 pthread_create(&client_list[i], NULL, receive_message, NULL);
                 i++;  
                 
@@ -202,7 +221,7 @@ int main(int argc, char *argv[])
                   
             }
         }
-    }while(i < 2);
+    }while(i < CLIENT_LIMIT);
 
     
 
@@ -212,7 +231,8 @@ int main(int argc, char *argv[])
 
 
 
-/******************** Process Data from Clients ***********************/
+/******************** Process Data from Clients **********************/
+/*********************************************************************/
 
 int messageProcessor(int bytesRead, char* input)
 {
@@ -247,24 +267,84 @@ int messageProcessor(int bytesRead, char* input)
     
     /* Message | File - up to the next 100KB */
     
-    //need to figure that one out.  A different array to dump the buffer into?
+    // need to figure that one out.  A different array to dump the buffer into?
+    // also just putting stuff in the switch statement for now, might
+    // have to break it up into more functions
+    
     
     switch(cmd)
     {
+        /* BROADCAST *  goes through clientList, retransmits buffer to everyone who is connected  */
+        case 'b':
+            puts("BROADCAST MESSAGE RECEIVED");
+            for (i = 0; i < CLIENT_LIMIT; i++)
+            {
+                if (clientList[i].connected != 0)
+                {
+                    sendMessage(clientList[i].socket, bytesRead, input);
+                }
+            }
+            
+            break;
+            
+        /* COMMANDS */
+        case 'c':
+            //no idea how this will work, whos it comming from?!
+            break;
+            
+        /* DISCONNECT */
+        case 'd':
+            // this command disconnects the client from the server.
+            break;
+        
+        /* TESTING PURPOSES */
         case 't':
             printf("TEST Successful. Option: %s", option);
             break;
         
+        /* GLOBAL FILE */
+        case 'e':
+            // this command sends a file to everyone on the server
+            break;
+            
+        /* USER FILE */
+        case 'f':
+            break;
+            
+        /* CURRENT ROOM USER LIST */
+        case 'h':
+            break;
+            
+        /* GLOBAL USER LIST */
+        case 'l':
+            break;
         
+        /* NAME */
+        case 'n':
+            break;
+            
+        /* ROOM MESSAGE */
+        case 'r':
+            break;
+        
+        /* SWITCH ROOMS */
+        case 's':
+            break;
+            
+        /* WHISPER */
+        case 'w':
+            break;
+        
+        
+        /* DEFAULT */
         default:
             printf("ERROR: COMMAND NOT RECOGNIZED.");
             break;
     }
 
-    
+    bzero(input, bytesRead);    //zero out the buffer that was used
     
     return 0;
 }
-
 
 
