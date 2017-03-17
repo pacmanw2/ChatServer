@@ -5,7 +5,7 @@
  */
 
 /* HOW TO RUN
-* ./runName PORT(optional)
+* ./runName port(optional)
 */
 
 #include <stdio.h>
@@ -15,7 +15,9 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <pthread.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+
 
 //#define *recvPtr
 //#define *clientPtr
@@ -26,8 +28,7 @@
 
 /******** Prototypes ********/
 
-void *receive_message();
-void *send_message();
+void *get_in_addr(struct sockaddr *sa);
 int messageProcessor(int bytesRead, char* input);
 int sendMessage(int socket, int bytesRead, char* input);
 
@@ -59,77 +60,7 @@ int socket_dh;  //socket descriptor
 int server_Q[3];    //server queue for clients trying to connect
 
 
-/******************************** RECEIVE ****************************/
-/*********************************************************************/
 
-void *receive_message() 
-{
-    char recv_buf[MAX_BUFF];
-    int rec;
-    while(1){
-
-        //char id[] = "<client>: ";
-        int i, bytesRead;
-        bytesRead = 0;
-        for(i = 0; i < 2; i++){
-            rec = recv(clientList[i].socket, recv_buf, MAX_BUFF, 0);
-            //rec = read(clientList[i].socket, recv_buf - bytesRead, MAX_BUFF - bytesRead);
-            //printf(">>> %i\n", rec);
-            
-            //check if connection has been lost
-            if(rec == 0){
-                
-                puts("Connection to client was lost!\n");
-                close(socket_dh);
-                return NULL;    
-            }
-            
-            bytesRead += rec;
-        }
-
-        
-        /* THere should be a # bytesRead checker here to make sure its over 30 or something */ 
-
-        messageProcessor(bytesRead, recv_buf);
-
-        
-        
-        
-        
-        /* This is the old receive message block.  Keeping it just in case *
-        //strcat(recv_buf, id);
-        printf("<client>: %s", recv_buf);
-        //recv_buf[0] = '\0';
-        memset(recv_buf, 0, sizeof(recv_buf) );
-        * */
-    }
-}
-
-
-/******************************** SEND *******************************/
-/*********************************************************************/
-/* might not even need a separate SEND thread */
-
-void *send_message()
-{
-    char client_str[MAX_BUFF];
-    int i, bytesRead;
-    bytesRead = 0;
-    while(1){
-
-        //char id[] = "<server>: ";
-        //char tab[] = "\t\t\t";
-        //printf("<server> enter message: ");
-        fgets(client_str, sizeof(client_str), stdin);
-        //strcat(client_str, id);
-        //strcat(client_str, tab);
-        for(i = 0; i < 3; i++){
-            int send_status = send(server_Q[i], client_str - bytesRead, MAX_BUFF - bytesRead, 0);    
-        }
-        
-        memset(client_str, 0, sizeof(client_str) );
-    }
-}
 
 /***************** SEND A MESSAGE TO A CLIENT *************************
  *********************************************************************/
@@ -143,89 +74,172 @@ int sendMessage(int socket, int bytesRead, char* input)
 }
 
 
+/***************** get sockaddr, IPv4 or IPv6: *************************
+ *********************************************************************/
+
+void *get_in_addr(struct sockaddr *sa)
+{
+    if (sa->sa_family == AF_INET) {
+        return &(((struct sockaddr_in*)sa)->sin_addr);
+    }
+
+    return &(((struct sockaddr_in6*)sa)->sin6_addr);
+}
+
+
 /******************************** MAIN *******************************/
 /*********************************************************************/
 
 int main(int argc, char *argv[])
 {
-    int port = 8888;
+    char port[6] = "8888";
     
     /* Checks for an argument to be used as a port - uses 8888 by default */
     if (argc == 2)
     {
-        port = atoi(argv[1]);
-        printf("Setting port to: %d\n", port);
+        strcpy(port, argv[1]);
+        printf("Setting port to: %s\n", port);
     }
     
     
-    //int socket_dh; // the socket discriptor
-    struct sockaddr_in server; // struct of type sockaddr_in 
 
-    //create threads
-    pthread_t thread_send, thread_recv;
-    pthread_t client_list[CLIENT_LIMIT];
 
-    // (1) create socket
-    socket_dh = socket(AF_INET, SOCK_STREAM, 0);
-    //printf("Sokcet descriptor is %d\n", socket_dh);	
+    /*************beej************/
+    
+    fd_set master;    // master file descriptor list
+    fd_set read_fds;  // temp file descriptor list for select()
+    int fdmax;        // maximum file descriptor number
 
-    //Prepare the sockaddr_in structure
-    server.sin_family = AF_INET; // using inet type of family address
+    int listener;     // listening socket descriptor
+    int newfd;        // newly accept()ed socket descriptor
+    struct sockaddr_storage remoteaddr; // client address
+    socklen_t addrlen;
 
-    /* INADDR_ANY means that we will use any ip address local to this computer for example
-     * localhost, loopback or 127.0.0.1. (0.0.0.0) == anyadress */
-    server.sin_addr.s_addr = INADDR_ANY; 
-    server.sin_port = htons(port);
+    char buf[256];    // buffer for client data
+    int nbytes;
 
-    // (2) bind
-    int stat;
-    stat = bind(socket_dh, (struct sockaddr *)&server, sizeof(server));
-    printf("Bind Status %d\n", stat);
-    if(stat < 0){
-        printf("bad bind status!\n");
+    char remoteIP[INET6_ADDRSTRLEN];
+
+    int yes=1;        // for setsockopt() SO_REUSEADDR, below
+    int i, j, rv;
+
+    struct addrinfo hints, *ai, *p;
+
+    FD_ZERO(&master);    // clear the master and temp sets
+    FD_ZERO(&read_fds);
+
+    // get us a socket and bind it
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
+    if ((rv = getaddrinfo(NULL, port, &hints, &ai)) != 0) {
+        fprintf(stderr, "selectserver: %s\n", gai_strerror(rv));
         exit(1);
     }
     
-    // (3) listen for connections
-    listen(socket_dh, 2);
-
-    puts("Wating for client. . .");
-    struct sockaddr_in client_addr;
-
-    int i = 0;
-    do{
-
-        // (4) accept connection 
-        clientList[i].socket = accept(socket_dh, (struct sockaddr *)&client_addr,(socklen_t*)&(clientList[i].socket)); 
-        clientList[i].connected = 1;    //flag client as connected
-        if(clientList[i].socket == -1){
-            sleep(5);
+    for(p = ai; p != NULL; p = p->ai_next) {
+        listener = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+        if (listener < 0) { 
+            continue;
         }
-        else{
-            if(i == CLIENT_LIMIT){
-                puts("Too many clients!");
-                break;
-            }
-            else{
-                printf("connection established with client discriptor %d\n", clientList[i].socket); 
-                server_Q[i] = clientList[i].socket;
-                //create Threads
-                //pthread_create(&client_list[i], NULL, send_message, NULL);
-                pthread_create(&client_list[i], NULL, receive_message, NULL);
-                i++;  
-                
-                /* Also we should populate the rest of the client struct in the clientlist,
-                 * with stuff like IP address and a random username maybe. */
-                 
-                 /* Maybe shove them into a default chat room as well */
-                  
-            }
+        
+        // lose the pesky "address already in use" error message
+        setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+
+        if (bind(listener, p->ai_addr, p->ai_addrlen) < 0) {
+            close(listener);
+            continue;
         }
-    }while(i < CLIENT_LIMIT);
 
-    
+        break;
+    }
 
-    pthread_exit(NULL);
+    // if we got here, it means we didn't get bound
+    if (p == NULL) {
+        fprintf(stderr, "selectserver: failed to bind\n");
+        exit(2);
+    }
+
+    freeaddrinfo(ai); // all done with this
+
+    // listen
+    if (listen(listener, 10) == -1) {
+        perror("listen");
+        exit(3);
+    }
+
+    // add the listener to the master set
+    FD_SET(listener, &master);
+
+    // keep track of the biggest file descriptor
+    fdmax = listener; // so far, it's this one
+
+    // main loop
+    for(;;) {
+        read_fds = master; // copy it
+        if (select(fdmax+1, &read_fds, NULL, NULL, NULL) == -1) {
+            perror("select");
+            exit(4);
+        }
+
+        // run through the existing connections looking for data to read
+        for(i = 0; i <= fdmax; i++) {
+            if (FD_ISSET(i, &read_fds)) { // we got one!!
+                if (i == listener) {
+                    // handle new connections
+                    addrlen = sizeof remoteaddr;
+                    newfd = accept(listener,
+                        (struct sockaddr *)&remoteaddr,
+                        &addrlen);
+
+                    if (newfd == -1) {
+                        perror("accept");
+                    }
+                    else {
+                        FD_SET(newfd, &master); // add to master set
+                        if (newfd > fdmax) {    // keep track of the max
+                            fdmax = newfd;
+                        }
+                        printf("selectserver: new connection from %s on "
+                            "socket %d\n",
+                            inet_ntop(remoteaddr.ss_family,
+                                get_in_addr((struct sockaddr*)&remoteaddr),
+                                remoteIP, INET6_ADDRSTRLEN),
+                            newfd);
+                    }
+                }
+                else {
+                    // handle data from a client
+                    if ((nbytes = recv(i, buf, sizeof buf, 0)) <= 0) {
+                        // got error or connection closed by client
+                        if (nbytes == 0) {
+                            // connection closed
+                            printf("selectserver: socket %d hung up\n", i);
+                        } else {
+                            perror("recv");
+                        }
+                        close(i); // bye!
+                        FD_CLR(i, &master); // remove from master set
+                    }
+                    else {
+                        // we got some data from a client
+                        for(j = 0; j <= fdmax; j++) {
+                            // send to everyone!
+                            if (FD_ISSET(j, &master)) {
+                                // except the listener and ourselves
+                                if (j != listener && j != i) {
+                                    if (send(j, buf, nbytes, 0) == -1) {
+                                        perror("send");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } // END handle data from client
+            } // END got new incoming connection
+        } // END looping through file descriptors
+    } // END for(;;)--and you thought it would never end!
 
 }// end main
 
@@ -342,7 +356,8 @@ int messageProcessor(int bytesRead, char* input)
             break;
     }
 
-    bzero(input, bytesRead);    //zero out the buffer that was used
+    bzero(input, bytesRead);    //zero out the buffer that was used (switch to memset)
+    //memset(client_str, 0, sizeof(client_str) );
     
     return 0;
 }
