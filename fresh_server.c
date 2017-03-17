@@ -5,9 +5,16 @@
  */
 
 /* HOW TO RUN
-* ./runName port(optional)
+* ./runName port(optional, default 8888)
 */
 
+/* Notes:
+ * Used code from:
+ * http://beej.us/guide/bgnet/output/html/multipage/advanced.html#select
+ * 
+ * */
+ 
+ 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,9 +25,6 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-
-//#define *recvPtr
-//#define *clientPtr
 
 #define MAX_BUFF 2000000    //2MB buffer :)
 #define CLIENT_LIMIT 10     //10 clients for now
@@ -101,9 +105,6 @@ int main(int argc, char *argv[])
         printf("Setting port to: %s\n", port);
     }
     
-    
-
-
     /*************beej************/
     
     fd_set master;    // master file descriptor list
@@ -223,18 +224,8 @@ int main(int argc, char *argv[])
                         FD_CLR(i, &master); // remove from master set
                     }
                     else {
-                        // we got some data from a client
-                        for(j = 0; j <= fdmax; j++) {
-                            // send to everyone!
-                            if (FD_ISSET(j, &master)) {
-                                // except the listener and ourselves
-                                if (j != listener && j != i) {
-                                    if (send(j, buf, nbytes, 0) == -1) {
-                                        perror("send");
-                                    }
-                                }
-                            }
-                        }
+                        // we got some data from a client, sending to process
+                        messageProcessor(nbytes, buf);
                     }
                 } // END handle data from client
             } // END got new incoming connection
@@ -298,6 +289,23 @@ int messageProcessor(int bytesRead, char* input)
                     sendMessage(clientList[i].socket, bytesRead, input);
                 }
             }
+            
+           /* pasted from main() above
+           for(j = 0; j <= fdmax; j++)
+           {
+                if (FD_ISSET(j, &master))
+                {
+                    // except the sender and the server
+                    if (j != listener && j != i)
+                    {
+                        if (send(j, buf, nbytes, 0) == -1)
+                        {
+                            perror("send");
+                        }
+                    }
+                }
+            }
+            */
             
             break;
             
