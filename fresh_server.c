@@ -33,7 +33,7 @@
 /******** Prototypes ********/
 
 void *get_in_addr(struct sockaddr *sa);
-int messageProcessor(int bytesRead, char* input);
+int messageProcessor(int curSocket, int bytesRead, char* input);
 int sendMessage(int socket, int bytesRead, char* input);
 
 
@@ -51,7 +51,7 @@ struct client{
 /* Struct for a room */
 
 struct room{
-    char name[20];  //name of Room
+    char name[20];  //pointer to name of Room
     char userList[CLIENT_LIMIT][20];  //an array of userNames in the room
     int maxOccupancy;
 };
@@ -63,7 +63,12 @@ struct room roomList[3];    //list of rooms
 int socket_dh;  //socket descriptor
 int server_Q[3];    //server queue for clients trying to connect
 
-
+/* main() and messageProcessor() */
+int fdmax;  //maximum file descriptor number
+fd_set master;    // master file descriptor list
+int listener;     // listening socket descriptor
+char buf[MAX_BUFF];    // buffer for client data
+char output[MAX_BUFF]; //buffer for outgoing data
 
 
 /***************** SEND A MESSAGE TO A CLIENT *************************
@@ -77,6 +82,45 @@ int sendMessage(int socket, int bytesRead, char* input)
     return 0;
 }
 
+
+/***************** ADD A USER TO THE LIST *************************
+ *********************************************************************/
+
+int addUser(char *ipaddr, int newSocket)
+{
+    int i;
+    for (i = 0; i < CLIENT_LIMIT; i++)
+    {
+        // go to the first client in the list that's not connected
+        if (!clientList[i].connected)
+        {
+            strcpy(clientList[i].userName, "NEWGUY");
+            clientList[i].socket = newSocket;
+            strcpy(clientList[i].ip_addr, ipaddr);// = inet_ntop(remoteaddr.ss_family,
+                                //get_in_addr((struct sockaddr*)&remoteaddr),
+                               // remoteIP, INET6_ADDRSTRLEN);
+            clientList[i].connected = 1;
+            return 0;
+        }
+    }
+    
+    return 0;
+}
+
+/***************** INITIALIZE ROOMS *************************
+ *********************************************************************/
+
+int initializeRooms()
+{
+    char *roomNames[] = {"X", "Y", "1"};
+    
+    int i;
+    for (i = 0; i < 3; i++){
+        strcpy(roomList[i].name, roomNames[i]);
+    }
+    
+    return 0;
+}
 
 /***************** get sockaddr, IPv4 or IPv6: *************************
  *********************************************************************/
@@ -107,22 +151,19 @@ int main(int argc, char *argv[])
     
     /*************beej************/
     
-    fd_set master;    // master file descriptor list
+    
     fd_set read_fds;  // temp file descriptor list for select()
-    int fdmax;        // maximum file descriptor number
 
-    int listener;     // listening socket descriptor
+    
     int newfd;        // newly accept()ed socket descriptor
     struct sockaddr_storage remoteaddr; // client address
     socklen_t addrlen;
-
-    char buf[256];    // buffer for client data
     int nbytes;
 
     char remoteIP[INET6_ADDRSTRLEN];
 
     int yes=1;        // for setsockopt() SO_REUSEADDR, below
-    int i, j, rv;
+    int i, rv;
 
     struct addrinfo hints, *ai, *p;
 
@@ -208,6 +249,7 @@ int main(int argc, char *argv[])
                                 get_in_addr((struct sockaddr*)&remoteaddr),
                                 remoteIP, INET6_ADDRSTRLEN),
                             newfd);
+                        addUser(remoteIP, newfd); //add user to clientList
                     }
                 }
                 else {
@@ -217,15 +259,16 @@ int main(int argc, char *argv[])
                         if (nbytes == 0) {
                             // connection closed
                             printf("selectserver: socket %d hung up\n", i);
-                        } else {
+                        }
+                        else {
                             perror("recv");
                         }
                         close(i); // bye!
                         FD_CLR(i, &master); // remove from master set
                     }
                     else {
-                        // we got some data from a client, sending to process
-                        messageProcessor(nbytes, buf);
+                        // we got some data from a client, sending to processor
+                        messageProcessor(i, nbytes, buf);
                     }
                 } // END handle data from client
             } // END got new incoming connection
@@ -239,14 +282,14 @@ int main(int argc, char *argv[])
 /******************** Process Data from Clients **********************/
 /*********************************************************************/
 
-int messageProcessor(int bytesRead, char* input)
+int messageProcessor(int curSocket, int bytesRead, char* input)
 {
     //'bytesRead' is basically the end of message (EOM) index
     //'input' is the pointer to the char[] buffer
     
     char cmd;
-    char option[25];
-    char sizeArray[10];
+    char option[20];
+    char sizeArray[8];
     int size;
     
     
@@ -259,16 +302,17 @@ int messageProcessor(int bytesRead, char* input)
     {
         option[k] = input[i];
     }
-    option[k] = '\0';
+    option[k - 1] = '\0';
     
     /* Size - next 8 bytes */
     for (i = 21, k = 0; i < 28; i++, k++)
     {
         sizeArray[k] = input[i];
     }
-    sizeArray[k] = '\0';
+    sizeArray[k - 1] = '\0';
     size = atoi(sizeArray);
     
+    printf("cmd: %c, options: %s, sizes: %s, %d\n", cmd, option, sizeArray, size);
     
     /* Message | File - up to the next 100KB */
     
@@ -276,37 +320,36 @@ int messageProcessor(int bytesRead, char* input)
     // also just putting stuff in the switch statement for now, might
     // have to break it up into more functions
     
+    int j;  //index for loops
     
     switch(cmd)
     {
         /* BROADCAST *  goes through clientList, retransmits buffer to everyone who is connected  */
         case 'b':
             puts("BROADCAST MESSAGE RECEIVED");
-            for (i = 0; i < CLIENT_LIMIT; i++)
-            {
-                if (clientList[i].connected != 0)
-                {
+            /*
+            for (i = 0; i < CLIENT_LIMIT; i++){
+                if (clientList[i].connected){
                     sendMessage(clientList[i].socket, bytesRead, input);
                 }
             }
+            * */
             
-           /* pasted from main() above
-           for(j = 0; j <= fdmax; j++)
-           {
-                if (FD_ISSET(j, &master))
-                {
-                    // except the sender and the server
-                    if (j != listener && j != i)
-                    {
-                        if (send(j, buf, nbytes, 0) == -1)
-                        {
+            //make outgoing message
+            output[0] = cmd;
+            output[1] = '\n'; //this protocol sucks
+            
+           //for socket in the FD list
+           for(j = 0; j <= fdmax; j++){
+                if (FD_ISSET(j, &master)){
+                    // except the server
+                    if (j != listener){
+                        if (send(j, buf, bytesRead, 0) == -1){
                             perror("send");
                         }
                     }
                 }
-            }
-            */
-            
+            }//end for
             break;
             
         /* COMMANDS */
@@ -339,10 +382,24 @@ int messageProcessor(int bytesRead, char* input)
             
         /* GLOBAL USER LIST */
         case 'l':
+            for (i = 0; i < CLIENT_LIMIT; i++){
+                if (clientList[i].connected){
+                    strcat(output, clientList[i].userName);
+                }
+            }
+            sendMessage(curSocket, sizeof(output), output);
+            
             break;
         
         /* NAME */
         case 'n':
+            for (i = 0; i < CLIENT_LIMIT; i++){
+                if (clientList[i].connected && clientList[i].socket == curSocket){
+                    strcpy(clientList[i].userName, option);
+                    //whisper user confirming name change?
+                    break;
+                }
+            }
             break;
             
         /* ROOM MESSAGE */
@@ -355,6 +412,10 @@ int messageProcessor(int bytesRead, char* input)
             
         /* WHISPER */
         case 'w':
+            //rebuild outgoing message
+            //<w><from><size><blaaaah>
+            
+            //sendMessage(otherGuysSocket, bytesRead, output)
             break;
         
         
@@ -364,7 +425,8 @@ int messageProcessor(int bytesRead, char* input)
             break;
     }
 
-    bzero(input, bytesRead);    //zero out the buffer that was used (switch to memset)
+    memset(input, 0, sizeof bytesRead);;    //zero out the input buffer
+    memset(output, 0, sizeof bytesRead);;    //zero out the output buffer that was sent to client
     //memset(client_str, 0, sizeof(client_str) );
     
     return 0;
