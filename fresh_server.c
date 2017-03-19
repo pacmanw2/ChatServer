@@ -107,6 +107,21 @@ int addUser(char *ipaddr, int newSocket)
     return 0;
 }
 
+
+int disconnectClient(int discSocket)
+{
+	int i;
+	for (i = 0; i < CLIENT_LIMIT; i++){
+		if (clientList[i].socket == discSocket){
+			clientList[i].connected = 0;
+			return 0;
+		}
+	}
+	
+	return 1;
+}
+
+
 /***************** INITIALIZE ROOMS *************************
  *********************************************************************/
 
@@ -133,6 +148,8 @@ void *get_in_addr(struct sockaddr *sa)
 
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
+
+
 
 
 /******************************** MAIN *******************************/
@@ -265,6 +282,7 @@ int main(int argc, char *argv[])
                         }
                         close(i); // bye!
                         FD_CLR(i, &master); // remove from master set
+                        disconnectClient(i);
                     }
                     else {
                         // we got some data from a client, sending to processor
@@ -414,6 +432,11 @@ int messageProcessor(int curSocket, int bytesRead, char* input)
         case 'w':
             //rebuild outgoing message
             //<w><from><size><blaaaah>
+            output[0] = cmd;
+            //strcat(output, fromUser);
+            strcat(output, sizeArray);
+            strcat(output, input);
+            
             
             //sendMessage(otherGuysSocket, bytesRead, output)
             break;
@@ -425,8 +448,8 @@ int messageProcessor(int curSocket, int bytesRead, char* input)
             break;
     }
 
-    memset(input, 0, sizeof bytesRead);;    //zero out the input buffer
-    memset(output, 0, sizeof bytesRead);;    //zero out the output buffer that was sent to client
+    memset(input, '\0', bytesRead);    //zero out the input buffer
+    memset(output, '\0', sizeof(output));    //zero out the output buffer that was sent to client
     //memset(client_str, 0, sizeof(client_str) );
     
     return 0;
