@@ -33,10 +33,11 @@ int list[3];
 void *receive_message() // void *receive_message
 {
     char recv_buff[1024];
+    int i = 0;
     while(1){
 
         //int recv_status = recv(sock, recv_buff, 2000, 0);
-        int rec = recv(sock, recv_buff, 2000, 0);
+        int rec = recv(sock, recv_buff, 1024, 0);
 
         //quant = read (sockfd, inbuffer, sizeof(inbuffer));
         //printf ("Received: %*.*s\n", quant, quant, inbuffer);
@@ -48,10 +49,13 @@ void *receive_message() // void *receive_message
             close(sock);
             return NULL;
         }
-
-        printf("<server>: %s", recv_buff);
+        printf(">> %i\n %s\n", i, recv_buff);
+        //printf("%i <server>: %s\n", i, recv_buff);
+        i++;
+        //getchar();
         //recv_buff[0] = '\0';
         memset(recv_buff, 0, sizeof(recv_buff) );
+
     }
 }
 
@@ -61,9 +65,25 @@ void *send_message()// *send
     char message[1024];
     while(1){
 
-        fgets(message, sizeof(message), stdin);
-        int send_status = send(sock, message, 2000, 0);
-        memset(message, 0, sizeof(message) );
+
+        char *s = malloc(1);
+        //printf("Enter message: \t"); // It can be of any length
+        int c;
+        int i = 0;
+        /* Read characters until found an EOF or newline character. */
+        while((c = getchar()) != '\n' && c != EOF)
+        {
+            s[i++] = c;
+            s = realloc(s, i+1); // Add space for another character to be read.
+        }
+        s[i] = '\0';  // Null terminate the string
+        //printf("Entered string: \t%s\n", s);  
+
+        //fgets(message, sizeof(message), stdin);
+        int send_status = send(sock, s, strlen(s), 0);
+        printf("%lu\n", strlen(s));
+        //memset(message, 0, sizeof(message) );
+        free(s);
     }
 }
 

@@ -34,7 +34,7 @@
 
 void *get_in_addr(struct sockaddr *sa);
 int messageProcessor(int curSocket, int bytesRead, char* input);
-int sendMessage(int socket, int bytesRead, char* input);
+void sendMessage(int socket, int bytesRead, char* input);
 
 
 /******** Structs ********/
@@ -74,12 +74,16 @@ char output[MAX_BUFF]; //buffer for outgoing data
 /***************** SEND A MESSAGE TO A CLIENT *************************
  *********************************************************************/
 
-int sendMessage(int socket, int bytesRead, char* input)
+void sendMessage(int socket, int bytesRead, char* input)
 {
+    puts("Send Message");
+    printf("\n Message Before send(): %s\n", input);
+    //char testArray[] = "THIS IS A TEST STRING";
     int status;
     status = send(socket, input, bytesRead, 0);
-    printf("bytes sent: %d \n", status);    //debugging purposes
-    return 0;
+    
+    printf("\nbytes sent: %d \n", status);    //debugging purposes
+    //return 0;
 }
 
 
@@ -286,6 +290,7 @@ int main(int argc, char *argv[])
                     }
                     else {
                         // we got some data from a client, sending to processor
+                        printf("\nFROM CLIENT: %s\n NUMBER OF BYTES: %i\n", buf, nbytes);
                         messageProcessor(i, nbytes, buf);
                     }
                 } // END handle data from client
@@ -309,6 +314,7 @@ int messageProcessor(int curSocket, int bytesRead, char* input)
     char option[20];
     char sizeArray[8];
     int size;
+    char *tempBuff = "";
     
     
     /* Command - 1st byte */
@@ -330,7 +336,7 @@ int messageProcessor(int curSocket, int bytesRead, char* input)
     sizeArray[k - 1] = '\0';
     size = atoi(sizeArray);
     
-    printf("cmd: %c, options: %s, sizes: %s, %d\n", cmd, option, sizeArray, size);
+    printf("cmd: %c | options: %s | sizes: %s | %d\n", cmd, option, sizeArray, size);
     
     /* Message | File - up to the next 100KB */
     
@@ -349,9 +355,12 @@ int messageProcessor(int curSocket, int bytesRead, char* input)
             for (i = 0; i < CLIENT_LIMIT; i++){
                 if (clientList[i].connected){
                     sendMessage(clientList[i].socket, bytesRead, input);
+                    puts("------------------\n");
                 }
             }
-            * */
+            */
+            printf("%i\n",bytesRead);
+            sendMessage(clientList[i].socket, bytesRead, input);
             
             //make outgoing message
             output[0] = cmd;
@@ -401,12 +410,16 @@ int messageProcessor(int curSocket, int bytesRead, char* input)
         /* GLOBAL USER LIST */
         case 'l':
             for (i = 0; i < CLIENT_LIMIT; i++){
+                
                 if (clientList[i].connected){
-                    strcat(output, clientList[i].userName);
+                    //strncat(output, clientList[i].userName, 1);
+                    printf("\n%s\n", clientList[i].userName);
+                    strcat(tempBuff, clientList[i].userName);
                 }
+                
             }
             sendMessage(curSocket, sizeof(output), output);
-            
+            printf("List of users sent. . . \n");
             break;
         
         /* NAME */
