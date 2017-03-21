@@ -35,6 +35,11 @@
 void *get_in_addr(struct sockaddr *sa);
 int messageProcessor(int curSocket, int bytesRead, char* input);
 void sendMessage(int socket, int bytesRead, char* input);
+void commands(int curSocket, int bytesRead, char* input);
+void broadcast(int curSocket, int bytesRead, char* input);
+void whisper(int curSocket, int bytesRead, char* input);
+//void name(int curSocket, int bytesRead, char* input);
+void list(int curSocket, int bytesRead, char* output);
 
 
 /******** Structs ********/
@@ -313,14 +318,17 @@ int messageProcessor(int curSocket, int bytesRead, char* input)
     char cmd;
     char option[20];
     char sizeArray[8];
+    char packData[MAX_BUFF];
     int size;
     char *tempBuff = "";
     
-    
-    /* Command - 1st byte */
+    cmd = input[0];
+
+    /*
+    // Command - 1st byte 
     cmd = input[0];
     
-    /* Option - next 20 bytes */
+    // Option - next 20 bytes 
     int i, k;
     for (i = 1, k = 0; i < 21; i++, k++)
     {
@@ -328,15 +336,13 @@ int messageProcessor(int curSocket, int bytesRead, char* input)
     }
     option[k - 1] = '\0';
     
-    /* Size - next 8 bytes */
+    // Size - next 8 bytes 
     for (i = 21, k = 0; i < 28; i++, k++)
     {
         sizeArray[k] = input[i];
     }
-    sizeArray[k - 1] = '\0';
-    size = atoi(sizeArray);
+    */
     
-    printf("cmd: %c | options: %s | sizes: %s | %d\n", cmd, option, sizeArray, size);
     
     /* Message | File - up to the next 100KB */
     
@@ -344,13 +350,14 @@ int messageProcessor(int curSocket, int bytesRead, char* input)
     // also just putting stuff in the switch statement for now, might
     // have to break it up into more functions
     
-    int j;  //index for loops
+    int j,i;  //index for loops
     
     switch(cmd)
     {
         /* BROADCAST *  goes through clientList, retransmits buffer to everyone who is connected  */
         case 'b':
             puts("BROADCAST MESSAGE RECEIVED");
+            broadcast(curSocket, bytesRead, input);
             /*
             for (i = 0; i < CLIENT_LIMIT; i++){
                 if (clientList[i].connected){
@@ -358,30 +365,15 @@ int messageProcessor(int curSocket, int bytesRead, char* input)
                     puts("------------------\n");
                 }
             }
+            //////////
+            
             */
-            printf("%i\n",bytesRead);
-            sendMessage(clientList[i].socket, bytesRead, input);
-            
-            //make outgoing message
-            output[0] = cmd;
-            output[1] = '\n'; //this protocol sucks
-            
-           //for socket in the FD list
-           for(j = 0; j <= fdmax; j++){
-                if (FD_ISSET(j, &master)){
-                    // except the server
-                    if (j != listener){
-                        if (send(j, buf, bytesRead, 0) == -1){
-                            perror("send");
-                        }
-                    }
-                }
-            }//end for
             break;
             
         /* COMMANDS */
         case 'c':
             //no idea how this will work, whos it comming from?!
+            commands(curSocket, bytesRead, input);
             break;
             
         /* DISCONNECT */
@@ -409,28 +401,23 @@ int messageProcessor(int curSocket, int bytesRead, char* input)
             
         /* GLOBAL USER LIST */
         case 'l':
-            for (i = 0; i < CLIENT_LIMIT; i++){
-                
-                if (clientList[i].connected){
-                    //strncat(output, clientList[i].userName, 1);
-                    printf("\n%s\n", clientList[i].userName);
-                    strcat(tempBuff, clientList[i].userName);
-                }
-                
-            }
-            sendMessage(curSocket, sizeof(output), output);
-            printf("List of users sent. . . \n");
+            list(curSocket, bytesRead, output);
+            
+            //sendMessage(curSocket, sizeof(output), output);
+            //printf("List of users sent. . . \n");
             break;
         
         /* NAME */
         case 'n':
+            //name(curSocket, sizeof(output), output);
+            /*
             for (i = 0; i < CLIENT_LIMIT; i++){
                 if (clientList[i].connected && clientList[i].socket == curSocket){
                     strcpy(clientList[i].userName, option);
                     //whisper user confirming name change?
                     break;
                 }
-            }
+            }*/
             break;
             
         /* ROOM MESSAGE */
@@ -445,11 +432,13 @@ int messageProcessor(int curSocket, int bytesRead, char* input)
         case 'w':
             //rebuild outgoing message
             //<w><from><size><blaaaah>
+            whisper(curSocket, bytesRead, input);
+            /*
             output[0] = cmd;
             //strcat(output, fromUser);
             strcat(output, sizeArray);
             strcat(output, input);
-            
+            */
             
             //sendMessage(otherGuysSocket, bytesRead, output)
             break;
@@ -467,5 +456,155 @@ int messageProcessor(int curSocket, int bytesRead, char* input)
     
     return 0;
 }
+   
+
+void broadcast(int curSocket, int bytesRead, char* input)
+{
+    //'bytesRead' is basically the end of message (EOM) index
+    //'input' is the pointer to the char[] buffer
+
+    char cmd;
+    char option[20];
+    char sizeArray[8];
+    char packData[MAX_BUFF];
+    int size;
+    int i,j,k;
+    
+    // Command - 1st byte 
+    cmd = input[0];
+    
+    // Option - next 20 bytes 
+    for (i = 1, k = 0; i < 21; i++, k++)
+    {
+        option[k] = input[i];
+    }
+    option[k - 1] = '\0';
+    
+    // Size - next 8 bytes 
+    for (i = 21, k = 0; i < 28; i++, k++)
+    {
+        sizeArray[k] = input[i];
+    }
+
+    sizeArray[k - 1] = '\0';
+    size = atoi(sizeArray);
+    
+    printf("cmd: %c | options: %s | sizes: %s | %d\n", cmd, option, sizeArray, size);
+
+    printf("%i\n",bytesRead);
+    sendMessage(clientList[i].socket, bytesRead, input);
+    
+    //make outgoing message
+    output[0] = cmd;
+    output[1] = '\n'; //this protocol sucks
+    
+    //for socket in the FD list
+    for(j = 0; j <= fdmax; j++){
+        if (FD_ISSET(j, &master)){
+            // except the server
+            if (j != listener){
+                if (send(j, buf, bytesRead, 0) == -1){
+                    perror("send");
+                }
+            }
+        }
+    }//end for
+}// end of broadcast
+
+/*
+"whisper" send a message to a specified user.
+Example usage: /w starkiller45 hey man how's it going?
+Example packet: [w][starkiller45][sizeof(message)][Message]
+*/
+//snprintf(size,9,"%d",100000); //the sizeof(the remaining message the user sent)
+void whisper(int curSock, int bytesRead, char* input)
+{
+    
+    char cmd;
+    char option[20];
+    char sizeArray[8];
+    char packData[MAX_BUFF];
+    int size;
+    int i,j,k;
+
+    output[0] = cmd;
+    output[1] = '\n';
+
+    // Option - next 20 bytes 
+    for (i = 2; i < 21; i++)
+    {
+        option[i] = input[i]; 
+    }
+    
+
+    // Size - next 8 bytes 
+    for (i = 21, k = 0; i < 28; i++, k++)
+    {
+        sizeArray[k] = input[i];
+    }
+
+    for(i = 28; i < 36; i++)
+    {
+        input[i];
+    }
+
+    sizeArray[k - 1] = '\0';
+    size = atoi(sizeArray);
+    
+    printf("cmd: %c | options: %s | sizes: %s | %d\n", cmd, option, sizeArray, size);
+
+    printf("%i\n",bytesRead);
+    sendMessage(clientList[i].socket, bytesRead, input);
 
 
+}
+
+
+
+/*
+'c': COMMANDS: ***Server receives a packet [c][][][], and goes to the switch, 
+finds c: and then sends a list of commands/functions to the client who sent it: 
+[][SERVER][sizeof(commandList)]["a:aDesc,b:bDesc,c:cDesc,e:eDesc,etc"].  
+It is then up to the client to parse the command list and display it as desired.
+
+i.e. SERVER: a -> description of command a \n
+
+b -> description of command b \n
+*/
+
+void commands(int curSocket, int bytesRead, char* input)
+{
+    char* b = "\n\t\tb: BROADCAST\n\
+               c: COMMANDS\n\
+               d: DISCONNECT\n\
+               e: FILE FOR EVERYONE\n\
+               f: FILE FOR ONE PERSON\n\
+               g: FILE FOR ROOM\n\
+               h: HERE?- List of users in Room\n\
+               l: LIST ALL CLIENTS ON SERVER\n\
+               n: NAME - check if username is available\n\
+               r: ROOM MESSAGE - broadcast to current room\n\
+               s: SWITCH ROOMS\n\
+               w: WHISPER - private message\n";
+    printf("%s\n", b);
+
+}
+
+/*
+'n': NAME: ***Server receives packet [n][newName][][], 
+then checks to see if the name is already in use by looking 
+through the client list -> then if it's not in use, updates the client's name, 
+and sends back [][SERVER][sizeof(success)]["name change success!"]
+***Client receives this packet back, and displays it however they want.
+*/
+
+void list(int curSocket, int bytesRead, char* input)
+{
+    int i; 
+    for(i = 0; i < CLIENT_LIMIT; i++)
+    {
+        if(clientList[i].userName != NULL)
+            printf("%s\n",clientList[i].userName);
+    }   
+
+}
