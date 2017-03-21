@@ -22,12 +22,14 @@
 typedef int bool;
 #define true 1
 #define false 0
+#define MAX_BUFF 2000000    //2MB buffer :)
 
 void *receive_message();
 void *send_message();
 
 int sock;
 int list[3];
+
 
 //inspired by StackOverflow
 void *receive_message() // void *receive_message
@@ -76,10 +78,10 @@ void *send_message()// *send
         }
         s[i] = '\0';  // Null terminate the string
         //printf("Entered string: \t%s\n", s);  
-
+        //char* packet = buildPacket(s);
         //fgets(message, sizeof(message), stdin);
         int send_status = send(sock, s, strlen(s), 0);
-        printf("*S*: %lu\n", strlen(s));
+        //printf("*S*: %lu\n", strlen(s));
         //memset(message, 0, sizeof(message) );
         free(s);
     }
