@@ -52,8 +52,6 @@ void *receive_message() // void *receive_message
         printf(">> %i\n %s\n", i, recv_buff);
         //printf("%i <server>: %s\n", i, recv_buff);
         i++;
-        //getchar();
-        //recv_buff[0] = '\0';
         memset(recv_buff, 0, sizeof(recv_buff) );
 
     }
@@ -81,7 +79,7 @@ void *send_message()// *send
 
         //fgets(message, sizeof(message), stdin);
         int send_status = send(sock, s, strlen(s), 0);
-        printf("%lu\n", strlen(s));
+        printf("*S*: %lu\n", strlen(s));
         //memset(message, 0, sizeof(message) );
         free(s);
     }
