@@ -36,8 +36,8 @@
 
 void *get_in_addr(struct sockaddr *sa);
 int messageProcessor(int curSocket, int bytesRead, char* input);
-int sendMessage(int socket, char* input);
-void commands(int curSocket, int bytesRead, char* input);
+int sendMessage(int socket, int dataSize, char* data);
+void commands(int curSocket);
 void broadcast(int curSocket, int bytesRead, char* input);
 void whisper(int curSocket, int bytesRead, char* input);
 void name(int curSocket, int bytesRead, char* input);
@@ -83,13 +83,16 @@ char* inputMessagePointer; //points to a portion of the input buffer
 /***************** SEND A MESSAGE TO A CLIENT *************************
  *********************************************************************/
 
-int sendMessage(int socket, char* input)
+int sendMessage(int socket, int dataSize, char* data)
 {
     puts("Send Message");
-    printf("\n Message Before send(): %s\n", input);
+    printf("\n Message Before send(): %s\n", data);
     
     int i, k, status;
-    char sizeArray[8]; // =  sprintf(size);??
+    char stringSize[8]; // =  sprintf(size);??
+    
+    snprintf(stringSize, sizeof(stringSize), "%d", dataSize);
+    
     
     /* build the output array */
     
@@ -105,11 +108,17 @@ int sendMessage(int socket, char* input)
     // Size - next 8 bytes 
     for (i = 21, k = 0; i < 28; i++, k++)
     {
-        output[i] = sizeArray[k];
+        output[i] = stringSize[k];
+    }
+    
+    //copy input array into output
+    for(i = 29, k = 0; k < size; i++, k++)
+    {
+        output[i] = data[k];
     }
     
     //send it to the client
-    status = send(socket, output, size + 29, 0);
+    status = send(socket, output, dataSize + 29, 0);
     
     printf("\nbytes sent to socket %d: %d \n", socket, status);    //debugging purposes
     return status;
@@ -149,7 +158,7 @@ void messageUnpacker()
     printf("cmd: %c | options: %s | sizes: %s | %d\n", cmd, option, sizeArray, size);
 
     printf("%i\n",size);
-    sendMessage(clientList[i].socket, inputMessagePointer);
+
 
 }//end messageUnpacker
 
@@ -364,8 +373,6 @@ int messageProcessor(int curSocket, int bytesRead, char* input)
     * stuff will be extracted into the global variables */
     messageUnpacker();
     
-    char *tempBuff = "";
-    
     cmd = input[0];
 
     /* Message | File - up to the next 100KB */
@@ -394,8 +401,7 @@ int messageProcessor(int curSocket, int bytesRead, char* input)
             
         /* COMMANDS */
         case 'c':
-            //no idea how this will work, whos it comming from?!
-            commands(curSocket, bytesRead, input);
+            commands(curSocket);
             break;
             
         /* DISCONNECT */
@@ -496,7 +502,7 @@ void broadcast(int curSocket, int bytesRead, char* input)
         if (FD_ISSET(j, &master)){
             // except the server
             if (j != listener){
-                if (sendMessage(clientList[j].socket, input) == -1){
+                if (sendMessage(clientList[j].socket, size, input) == -1){
                     perror("send");
                 }
             }
@@ -517,9 +523,9 @@ i.e. SERVER: a -> description of command a \n
 b -> description of command b \n
 */
 
-void commands(int curSocket, int bytesRead, char* input)
+void commands(int curSocket)
 {
-    char* b = "\n\t\tb: BROADCAST\n\
+    char list[] = "\n\t\tb: BROADCAST\n\
                c: COMMANDS\n\
                d: DISCONNECT\n\
                e: FILE FOR EVERYONE\n\
@@ -531,7 +537,11 @@ void commands(int curSocket, int bytesRead, char* input)
                r: ROOM MESSAGE - broadcast to current room\n\
                s: SWITCH ROOMS\n\
                w: WHISPER - private message\n";
-    printf("%s\n", b);
+    
+    //inputMessagePointer = list;
+    size = strlen(list);
+    
+    sendMessage(curSocket, size, list);
 
 }
 
@@ -596,15 +606,32 @@ Example packet: [w][starkiller45][sizeof(message)][Message]
 //snprintf(size,9,"%d",100000); //the sizeof(the remaining message the user sent)
 void whisper(int curSock, int bytesRead, char* input)
 {
-
-    //char sz = malloc(8);
-    snprintf(sizeArray, 8, "%d", size);
-    printf(">>>> %s\n",sizeArray);
+    //size of message alredy set in global from messageUnpacker()
     
-    printf("cmd: %c | options: %s | sizes: %s | %d\n", cmd, option, sizeArray, size);
-
-    printf("%i\n",bytesRead);
-    sendMessage(curSock, input);
+    int i;
+    
+    //copy the "from" socket userName
+    char from[20];
+    for (i = 0; i < CLIENT_LIMIT; i++)
+    {
+        if (clientList[i].socket == curSock)
+        {
+            strcpy(from, clientList[i].userName);
+        }
+    }
+    
+    //cycle through clients, find target socket
+    int targetSocket;
+    for (i = 0; i < CLIENT_LIMIT; i++)
+    {
+        if (strcmp(option, clientList[i].userName))
+        {
+            targetSocket = clientList[i].socket;
+            break;
+        }
+    }
+    
+    sendMessage(targetSocket, size, input); //relay message to targetSocket
 }
 
 
