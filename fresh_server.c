@@ -86,7 +86,7 @@ char* inputMessagePointer; //points to a portion of the input buffer
 int sendMessage(int socket, int dataSize, char* data)
 {
     puts("Send Message");
-    printf("\n Message Before send(): %s\n", data);
+    printf("Message Before send(): %s\n", data);
     
     int i, k, status;
     char stringSize[8]; // =  sprintf(size);??
@@ -103,7 +103,7 @@ int sendMessage(int socket, int dataSize, char* data)
     {
         output[i] = option[k];
     }
-    option[k - 1] = '\0';
+    //option[k - 1] = '\0';
     
     // Size - next 8 bytes 
     for (i = 21, k = 0; i < 28; i++, k++)
@@ -155,9 +155,7 @@ void messageUnpacker()
     //set packData to be the start of the "message" portion of the array
     inputMessagePointer = &input[29];
     
-    printf("cmd: %c | options: %s | sizes: %s | %d\n", cmd, option, sizeArray, size);
-
-    printf("%i\n",size);
+    printf("Messege unpacked:\ncmd: %c | options: %s | sizes: %s | %d\n", cmd, option, sizeArray, size);
 
 
 }//end messageUnpacker
@@ -381,8 +379,6 @@ int messageProcessor(int curSocket, int bytesRead, char* input)
     // also just putting stuff in the switch statement for now, might
     // have to break it up into more functions
     
-    int j;  //index for loops
-    
     switch(cmd)
     {
         /* BROADCAST *  goes through clientList, retransmits buffer to everyone who is connected  */
@@ -459,17 +455,7 @@ int messageProcessor(int curSocket, int bytesRead, char* input)
             
         /* WHISPER */
         case 'w':
-            //rebuild outgoing message
-            //<w><from><size><blaaaah>
             whisper(curSocket, bytesRead, input);
-            /*
-            output[0] = cmd;
-            //strcat(output, fromUser);
-            strcat(output, sizeArray);
-            strcat(output, input);
-            */
-            
-            //sendMessage(otherGuysSocket, bytesRead, output)
             break;
         
         
@@ -481,6 +467,9 @@ int messageProcessor(int curSocket, int bytesRead, char* input)
 
     memset(input, '\0', bytesRead);    //zero out the input buffer
     memset(output, '\0', sizeof(output));    //zero out the output buffer that was sent to client
+    memset(sizeArray, '\0', sizeof(sizeArray));
+    memset(option, '\0', sizeof(option));
+    memset(packData, '\0', size);
     //memset(client_str, 0, sizeof(client_str) );
     
     return 0;
@@ -502,7 +491,7 @@ void broadcast(int curSocket, int bytesRead, char* input)
         if (FD_ISSET(j, &master)){
             // except the server
             if (j != listener){
-                if (sendMessage(j, size, input) == -1){
+                if (sendMessage(j, size, &input[29]) == -1){
                     perror("send");
                 }
             }
@@ -631,7 +620,9 @@ void whisper(int curSock, int bytesRead, char* input)
         }
     }
     
-    sendMessage(targetSocket, size, input); //relay message to targetSocket
+    //inputMessagePointer = ;
+    
+    sendMessage(targetSocket, size, &input[29]); //relay message to targetSocket
 }
 
 
