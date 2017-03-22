@@ -84,7 +84,9 @@ public class MultiThreadChatClient implements Runnable {
         try {
             while ((responseLine = is.readLine()) != null) {
 
-                packet=responseLine.split(" ");
+
+
+                packet=responseLine.split("\0");
 
                 switch (packet[0]){
 
@@ -94,8 +96,15 @@ public class MultiThreadChatClient implements Runnable {
                         break;
 
                     case "c":
-                        //store the packet into responseline and print that out
+                        while ((responseLine = is.readLine()) != null){
+                        if(responseLine.contains("460")){
+                            System.out.println();
+                            responseLine = is.readLine();
+                        }
+                        System.out.println(responseLine);
+                    }
                         break;
+
 
                     case "f":
                         //Store the file onto the disk
@@ -104,9 +113,11 @@ public class MultiThreadChatClient implements Runnable {
 
                     case "w":
                         //Store username, and message into responseline then print
+
                         break;
 
-                    case
+                    default:
+                        System.out.println("ERROR");
 
 
                 }
