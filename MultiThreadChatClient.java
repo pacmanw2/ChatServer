@@ -80,8 +80,40 @@ public class MultiThreadChatClient implements Runnable {
      * server. Once we received that then we want to break.
      */
         String responseLine;
+        String [] packet;
         try {
-            while ((responseLine = is.readUTF()) != null) {
+            while ((responseLine = is.readLine()) != null) {
+
+                packet=responseLine.split(" ");
+
+                switch (packet[0]){
+
+                    case "b":
+                        responseLine = packet[1];
+                        System.out.println(responseLine);
+                        break;
+
+                    case "c":
+                        //store the packet into responseline and print that out
+                        break;
+
+                    case "f":
+                        //Store the file onto the disk
+
+                        break;
+
+                    case "w":
+                        //Store username, and message into responseline then print
+                        break;
+
+                    case
+
+
+                }
+
+
+
+
                 System.out.println(responseLine);
                 if (responseLine.indexOf("*** Bye") != -1)
                     break;
