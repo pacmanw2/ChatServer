@@ -112,7 +112,7 @@ int sendMessage(int socket, int dataSize, char* data)
     }
     
     //copy input array into output
-    for(i = 29, k = 0; k < size; i++, k++)
+    for(i = 29, k = 0; k < dataSize; i++, k++)
     {
         output[i] = data[k];
     }
@@ -434,15 +434,7 @@ int messageProcessor(int curSocket, int bytesRead, char* input)
         
         /* NAME */
         case 'n':
-            //name(curSocket, sizeof(output), output);
-            /*
-            for (i = 0; i < CLIENT_LIMIT; i++){
-                if (clientList[i].connected && clientList[i].socket == curSocket){
-                    strcpy(clientList[i].userName, option);
-                    //whisper user confirming name change?
-                    break;
-                }
-            }*/
+            name(curSocket, sizeof(output), output);
             break;
             
         /* ROOM MESSAGE */
@@ -549,7 +541,19 @@ and sends back [][SERVER][sizeof(success)]["name change success!"]
 
 void name(int curSocket, int bytesRead, char* input)
 {
-    
+    //make the string for a possible success
+    char namechange[] = "Name change success";
+    cmd = 'w';
+    int i;
+    //go through whole client list, find socket == socket
+    for (i = 0; i < CLIENT_LIMIT; i++){
+        if (clientList[i].connected && clientList[i].socket == curSocket){
+            strcpy(clientList[i].userName, option);
+            //whisper user confirming name change
+            sendMessage(curSocket, strlen(namechange), namechange);
+            break;
+        }
+    }
 }
 
 /*
@@ -616,6 +620,7 @@ void whisper(int curSock, int bytesRead, char* input)
         if (strcmp(option, clientList[i].userName))
         {
             targetSocket = clientList[i].socket;
+            strcpy(option, from);
             break;
         }
     }
