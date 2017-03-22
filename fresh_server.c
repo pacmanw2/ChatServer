@@ -5,12 +5,12 @@
  */
 
 /* HOW TO RUN
-* ./runName port(optional, default 8888)
+* ./runName port(OPTIONal, default 8888)
 */
 
 /* Notes:
  * Used code from:
- * http://beej.us/guide/bgnet/output/html/multipage/advanced.html#select
+ * http://beej.us/guide/bgnet/OUTPUT/html/multipage/advanced.html#select
  * 
  * */
  
@@ -35,15 +35,15 @@
 /******** Prototypes ********/
 
 void *get_in_addr(struct sockaddr *sa);
-int messageProcessor(int curSocket, int bytesRead, char* input);
-int sendMessage(int socket, int dataSize, char* data);
+int messageProcessor(int curSocket, int bytesRead, char* INPUT);
+int sendMessage(int socket, int dataSIZE, char* data);
 void commands(int curSocket);
-void broadcast(int curSocket, int bytesRead, char* input);
-void whisper(int curSocket, int bytesRead, char* input);
-void name(int curSocket, int bytesRead, char* input);
-void list(int curSocket, int bytesRead, char* output);
-void switchRoom(int curSocket, int bytesRead, char* input);
-void sendFile(int curSocket, int bytesRead, char* input);
+void broadcast(int curSocket, int bytesRead, char* INPUT);
+void whisper(int curSocket, int bytesRead, char* INPUT);
+void name(int curSocket, int bytesRead, char* INPUT);
+void list(int curSocket, int bytesRead, char* OUTPUT);
+void switchRoom(int curSocket, int bytesRead, char* INPUT);
+void sendFile(int curSocket, int bytesRead, char* INPUT);
 
 
 /******** Struct for a client ********/
@@ -58,68 +58,68 @@ struct client{
 
 /******** Global Variables ********/
 
-struct client clientList[CLIENT_LIMIT]; //list of clients
+struct client CLIENTLIST[CLIENT_LIMIT]; //list of clients
 int socket_dh;  //socket descriptor
 int server_Q[3];    //server queue for clients trying to connect
-char *roomNames[] = {"X", "Y", "1", "Waitroom"};   //list of Rooms
+char *ROOMNAMES[] = {"X", "Y", "1", "Waitroom"};   //list of Rooms
 
 
 /* main() and messageProcessor() */
 int fdmax;  //maximum file descriptor number
 fd_set master;    // master file descriptor list
 int listener;     // listening socket descriptor
-char input[MAX_BUFF];    // buffer for client data
-char output[MAX_BUFF]; //buffer for outgoing data
+char INPUT[MAX_BUFF];    // buffer for client data
+char OUTPUT[MAX_BUFF]; //buffer for outgoing data
 
 
 /* Stuff for messageUnpacker() and sendMessage() */
-char cmd;   //command
-char option[20];    //option of message
-char sizeArray[8];  //size in char
-int size;   //size of message 
-char packData[MAX_BUFF]; //array for data
-char* inputMessagePointer; //points to a portion of the input buffer
+char CMD;   //command
+char OPTION[20];    //OPTION of message
+char SIZEARRAY[8];  //SIZE in char
+int SIZE;   //SIZE of message 
+char PACKDATA[MAX_BUFF]; //array for data
+char* INPUTMESSAGEPOINTER; //points to a portion of the INPUT buffer
 
 /***************** SEND A MESSAGE TO A CLIENT *************************
  *********************************************************************/
 
-int sendMessage(int socket, int dataSize, char* data)
+int sendMessage(int socket, int dataSIZE, char* data)
 {
     puts("Send Message");
-    printf("Message Before send(): %s\n", data);
     
     int i, k, status;
-    char stringSize[8]; // =  sprintf(size);??
+    char stringSIZE[8];
     
-    snprintf(stringSize, sizeof(stringSize), "%d", dataSize);
+    snprintf(stringSIZE, sizeof(stringSIZE), "%d", dataSIZE);
     
     
-    /* build the output array */
+    /* build the OUTPUT array */
     
-    output[0] = cmd;
+    OUTPUT[0] = CMD;
     
-    // Option - next 20 bytes 
+    // OPTION - next 20 bytes 
     for (i = 1, k = 0; i < 21; i++, k++)
     {
-        output[i] = option[k];
+        OUTPUT[i] = OPTION[k];
     }
-    //option[k - 1] = '\0';
+    //OPTION[k - 1] = '\0';
     
-    // Size - next 8 bytes 
+    // SIZE - next 8 bytes 
     for (i = 21, k = 0; i < 28; i++, k++)
     {
-        output[i] = stringSize[k];
+        OUTPUT[i] = stringSIZE[k];
     }
     
-    //copy input array into output
-    for(i = 29, k = 0; k < dataSize; i++, k++)
+    //copy INPUT array into OUTPUT
+    for(i = 29, k = 0; k < dataSIZE; i++, k++)
     {
-        output[i] = data[k];
+        OUTPUT[i] = data[k];
     }
     
     //send it to the client
-    status = send(socket, output, dataSize + 29, 0);
+    status = send(socket, OUTPUT, dataSIZE + 29, 0);
     
+    printf("Message Before send(): %s\n", OUTPUT);
     printf("\nbytes sent to socket %d: %d \n", socket, status);    //debugging purposes
     return status;
 }
@@ -134,28 +134,28 @@ void messageUnpacker()
     int i,k;
     
     // Command - 1st byte 
-    cmd = input[0];
+    CMD = INPUT[0];
     
-    // Option - next 20 bytes 
+    // OPTION - next 20 bytes 
     for (i = 1, k = 0; i < 21; i++, k++)
     {
-        option[k] = input[i];
+        OPTION[k] = INPUT[i];
     }
-    option[k - 1] = '\0';
+    OPTION[k - 1] = '\0';
     
-    // Size - next 8 bytes 
+    // SIZE - next 8 bytes 
     for (i = 21, k = 0; i < 28; i++, k++)
     {
-        sizeArray[k] = input[i];
+        SIZEARRAY[k] = INPUT[i];
     }
 
-    sizeArray[k - 1] = '\0';
-    size = atoi(sizeArray);
+    SIZEARRAY[k - 1] = '\0';
+    SIZE = atoi(SIZEARRAY);
     
-    //set packData to be the start of the "message" portion of the array
-    inputMessagePointer = &input[29];
+    //set INPUTMESSAGEPOINTER to be the start of the "message" portion of the array
+    INPUTMESSAGEPOINTER = &INPUT[29];
     
-    printf("Messege unpacked:\ncmd: %c | options: %s | sizes: %s | %d\n", cmd, option, sizeArray, size);
+    printf("Messege unpacked:\nCMD: %c | OPTIONs: %s | SIZEs: %s | %d\n", CMD, OPTION, SIZEARRAY, SIZE);
 
 
 }//end messageUnpacker
@@ -170,14 +170,14 @@ int addUser(char *ipaddr, int newSocket)
     for (i = 0; i < CLIENT_LIMIT; i++)
     {
         // go to the first client in the list that's not connected
-        if (!clientList[i].connected)
+        if (!CLIENTLIST[i].connected)
         {
-            strcpy(clientList[i].userName, "NEWGUY");
-            clientList[i].socket = newSocket;
-            strcpy(clientList[i].ip_addr, ipaddr);// = inet_ntop(remoteaddr.ss_family,
+            strcpy(CLIENTLIST[i].userName, "NEWGUY\n");
+            CLIENTLIST[i].socket = newSocket;
+            strcpy(CLIENTLIST[i].ip_addr, ipaddr);// = inet_ntop(remoteaddr.ss_family,
                                 //get_in_addr((struct sockaddr*)&remoteaddr),
                                // remoteIP, INET6_ADDRSTRLEN);
-            clientList[i].connected = 1;
+            CLIENTLIST[i].connected = 1;
             return 0;
         }
     }
@@ -188,13 +188,16 @@ int addUser(char *ipaddr, int newSocket)
 
 int disconnectClient(int discSocket)
 {
+    FD_CLR(discSocket, &master); // remove from master set
+    
 	int i;
 	for (i = 0; i < CLIENT_LIMIT; i++){
-		if (clientList[i].socket == discSocket){
-			clientList[i].connected = 0;
+		if (CLIENTLIST[i].socket == discSocket){
+			CLIENTLIST[i].connected = 0;
 			return 0;
 		}
 	}
+    close(discSocket);
 	
 	return 1;
 }
@@ -330,12 +333,12 @@ int main(int argc, char *argv[])
                                 get_in_addr((struct sockaddr*)&remoteaddr),
                                 remoteIP, INET6_ADDRSTRLEN),
                             newfd);
-                        addUser(remoteIP, newfd); //add user to clientList
+                        addUser(remoteIP, newfd); //add user to CLIENTLIST
                     }
                 }
                 else {
                     // handle data from a client
-                    if ((nbytes = recv(i, input, sizeof input, 0)) <= 0) {
+                    if ((nbytes = recv(i, INPUT, sizeof INPUT, 0)) <= 0) {
                         // got error or connection closed by client
                         if (nbytes == 0) {
                             // connection closed
@@ -344,14 +347,12 @@ int main(int argc, char *argv[])
                         else {
                             perror("recv");
                         }
-                        close(i); // bye!
-                        FD_CLR(i, &master); // remove from master set
-                        disconnectClient(i);
+                        disconnectClient(i); // bye!
                     }
                     else {
                         // we got some data from a client, sending to processor
-                        printf("\nFROM CLIENT: %s\n NUMBER OF BYTES: %i\n", input, nbytes);
-                        messageProcessor(i, nbytes, input);
+                        printf("\nFROM CLIENT: %s\n NUMBER OF BYTES: %i\n", INPUT, nbytes);
+                        messageProcessor(i, nbytes, INPUT);
                     }
                 } // END handle data from client
             } // END got new incoming connection
@@ -365,34 +366,20 @@ int main(int argc, char *argv[])
 /******************** Process Data from Clients **********************/
 /*********************************************************************/
 
-int messageProcessor(int curSocket, int bytesRead, char* input)
+int messageProcessor(int curSocket, int bytesRead, char* INPUT)
 {
     /* Call messageUnpacker() to extract contents of inbound message
     * stuff will be extracted into the global variables */
     messageUnpacker();
-    
-    cmd = input[0];
 
     /* Message | File - up to the next 100KB */
     
-    // need to figure that one out.  A different array to dump the buffer into?
-    // also just putting stuff in the switch statement for now, might
-    // have to break it up into more functions
-    
-    switch(cmd)
+    switch(CMD)
     {
-        /* BROADCAST *  goes through clientList, retransmits buffer to everyone who is connected  */
+        /* BROADCAST *  goes through CLIENTLIST, retransmits buffer to everyone who is connected  */
         case 'b':
             puts("BROADCAST MESSAGE RECEIVED");
-            broadcast(curSocket, bytesRead, input);
-            /*
-            for (i = 0; i < CLIENT_LIMIT; i++){
-                if (clientList[i].connected){
-                    sendMessage(clientList[i].socket, bytesRead, input);
-                    puts("------------------\n");
-                }
-            }
-            */
+            broadcast(curSocket, bytesRead, INPUT);
             break;
             
         /* COMMANDS */
@@ -402,12 +389,12 @@ int messageProcessor(int curSocket, int bytesRead, char* input)
             
         /* DISCONNECT */
         case 'd':
-            // this command disconnects the client from the server.
+            disconnectClient(curSocket);
             break;
         
         /* TESTING PURPOSES */
         case 't':
-            printf("TEST Successful. Option: %s", option);
+            printf("TEST Successful. OPTION: %s", OPTION);
             break;
         
         /* GLOBAL FILE */
@@ -417,39 +404,38 @@ int messageProcessor(int curSocket, int bytesRead, char* input)
             
         /* USER FILE */
         case 'f':
-            sendFile(curSocket, bytesRead, output);
+            sendFile(curSocket, bytesRead, OUTPUT);
             break;
             
         /* CURRENT ROOM USER LIST */
         case 'h':
+            
             break;
             
         /* GLOBAL USER LIST */
         case 'l':
-            list(curSocket, bytesRead, output);
-            
-            //sendMessage(curSocket, sizeof(output), output);
-            //printf("List of users sent. . . \n");
+            list(curSocket, bytesRead, OUTPUT);
             break;
         
         /* NAME */
         case 'n':
-            name(curSocket, sizeof(output), output);
+            name(curSocket, sizeof(OUTPUT), OUTPUT);
             break;
             
         /* ROOM MESSAGE */
         case 'r':
+            
             break;
         
         /* SWITCH ROOMS */
         case 's':
+            switchRoom(curSocket, bytesRead, INPUT);
             break;
             
         /* WHISPER */
         case 'w':
-            whisper(curSocket, bytesRead, input);
+            whisper(curSocket, bytesRead, INPUT);
             break;
-        
         
         /* DEFAULT */
         default:
@@ -457,23 +443,23 @@ int messageProcessor(int curSocket, int bytesRead, char* input)
             break;
     }
 
-    memset(input, '\0', bytesRead);    //zero out the input buffer
-    memset(output, '\0', sizeof(output));    //zero out the output buffer that was sent to client
-    memset(sizeArray, '\0', sizeof(sizeArray));
-    memset(option, '\0', sizeof(option));
-    memset(packData, '\0', size);
+    memset(INPUT, '\0', sizeof(INPUT));    //zero out the INPUT buffer
+    memset(OUTPUT, '\0', sizeof(OUTPUT));    //zero out the OUTPUT buffer that was sent to client
+    memset(SIZEARRAY, '\0', sizeof(SIZEARRAY));
+    memset(OPTION, '\0', sizeof(OPTION));
+    memset(PACKDATA, '\0', sizeof(PACKDATA));
     //memset(client_str, 0, sizeof(client_str) );
     
     return 0;
 }
    
 
-void broadcast(int curSocket, int bytesRead, char* input)
+void broadcast(int curSocket, int bytesRead, char* INPUT)
 {
     //'bytesRead' is basically the end of message (EOM) index
-    //'input' is the pointer to the char[] buffer
+    //'INPUT' is the pointer to the char[] buffer
 
-    printf("cmd: %c | options: %s | sizes: %s | %d\n", cmd, option, sizeArray, size);
+    printf("CMD: %c | OPTIONs: %s | SIZEs: %s | %d\n", CMD, OPTION, SIZEARRAY, SIZE);
     printf("%i\n",bytesRead);
     
     int j;
@@ -483,7 +469,7 @@ void broadcast(int curSocket, int bytesRead, char* input)
         if (FD_ISSET(j, &master)){
             // except the server
             if (j != listener){
-                if (sendMessage(j, size, &input[29]) == -1){
+                if (sendMessage(j, SIZE, &INPUT[29]) == -1){
                     perror("send");
                 }
             }
@@ -519,14 +505,14 @@ void commands(int curSocket)
                s: SWITCH ROOMS\n\
                w: WHISPER - private message\n";
     
-    //inputMessagePointer = list;
-    size = strlen(list);
+    //INPUTMESSAGEPOINTER = list;
+    SIZE = strlen(list);
     
-    sendMessage(curSocket, size, list);
+    sendMessage(curSocket, SIZE, list);
 
 }
 
-void sendFile(int curSocket, int bytesRead, char* input)
+void sendFile(int curSocket, int bytesRead, char* INPUT)
 {
     
 }
@@ -539,16 +525,16 @@ and sends back [][SERVER][sizeof(success)]["name change success!"]
 ***Client receives this packet back, and displays it however they want.
 */
 
-void name(int curSocket, int bytesRead, char* input)
+void name(int curSocket, int bytesRead, char* INPUT)
 {
     //make the string for a possible success
     char namechange[] = "Name change success";
-    cmd = 'w';
+    CMD = 'w';
     int i;
     //go through whole client list, find socket == socket
     for (i = 0; i < CLIENT_LIMIT; i++){
-        if (clientList[i].connected && clientList[i].socket == curSocket){
-            strcpy(clientList[i].userName, option);
+        if (CLIENTLIST[i].connected && CLIENTLIST[i].socket == curSocket){
+            strcpy(CLIENTLIST[i].userName, OPTION);
             //whisper user confirming name change
             sendMessage(curSocket, strlen(namechange), namechange);
             break;
@@ -561,16 +547,17 @@ void name(int curSocket, int bytesRead, char* input)
    just send the list of ALL users connected to the server.
 */
 
-void list(int curSocket, int bytesRead, char* input)
+void list(int curSocket, int bytesRead, char* INPUT)
 {
-
+    char holder[20 * CLIENT_LIMIT] = " ";
     int i; 
     for(i = 0; i < CLIENT_LIMIT; i++)
     {
-        if(clientList[i].userName != NULL)
-            printf("%s\n",clientList[i].userName);
+        if(CLIENTLIST[i].connected != 0)
+            strncat(holder, CLIENTLIST[i].userName, 20);
     }   
-
+    
+    whisper(curSocket, strlen(holder) + 1, holder);
 }
 
 
@@ -585,9 +572,36 @@ IF the room is valid - if valid, send back a success message
 if invalid, send an error message [][SERVER][sizeof(failure)]["failed to enter room, valid rooms are: room1,room2,room3]
 */
 
-void switchRoom(int curSocket, int bytesRead, char* input)
+void switchRoom(int curSocket, int bytesRead, char* INPUT)
 {
-
+    int i;
+    char flag = 'f';
+    //check if the room name is valid
+    for (i = 0; i < 4; i++)
+    {
+        if (strcmp(ROOMNAMES[i], OPTION))   //if OPTION == roomName from the list
+        {
+            //flag = true
+            flag = 't';
+        }
+    }
+    
+    //if room not found in list, tell user, then ditch out
+    if (flag == 'f')
+    {
+        char message[] = "Invalid Room";
+        whisper(curSocket, strlen(message), message);
+        return;
+    }
+    
+    //change the user's room field in their struct ("move" into the room)
+    for (i = 0; i < CLIENT_LIMIT; i++)
+    {
+        if (CLIENTLIST[i].socket == curSocket)
+        {
+            strcpy(CLIENTLIST[i].room, OPTION);
+        }
+    }
 }
 
 
@@ -596,10 +610,10 @@ void switchRoom(int curSocket, int bytesRead, char* input)
 Example usage: /w starkiller45 hey man how's it going?
 Example packet: [w][starkiller45][sizeof(message)][Message]
 */
-//snprintf(size,9,"%d",100000); //the sizeof(the remaining message the user sent)
-void whisper(int curSock, int bytesRead, char* input)
+//snprintf(SIZE,9,"%d",100000); //the sizeof(the remaining message the user sent)
+void whisper(int curSock, int bytesRead, char* INPUT)
 {
-    //size of message alredy set in global from messageUnpacker()
+    //SIZE of message alredy set in global from messageUnpacker()
     
     int i;
     
@@ -607,9 +621,9 @@ void whisper(int curSock, int bytesRead, char* input)
     char from[20];
     for (i = 0; i < CLIENT_LIMIT; i++)
     {
-        if (clientList[i].socket == curSock)
+        if (CLIENTLIST[i].socket == curSock)
         {
-            strcpy(from, clientList[i].userName);
+            strcpy(from, CLIENTLIST[i].userName);
         }
     }
     
@@ -617,17 +631,15 @@ void whisper(int curSock, int bytesRead, char* input)
     int targetSocket;
     for (i = 0; i < CLIENT_LIMIT; i++)
     {
-        if (strcmp(option, clientList[i].userName))
+        if (strcmp(OPTION, CLIENTLIST[i].userName))
         {
-            targetSocket = clientList[i].socket;
-            strcpy(option, from);
+            targetSocket = CLIENTLIST[i].socket;
+            strcpy(OPTION, from);
             break;
         }
     }
     
-    //inputMessagePointer = ;
-    
-    sendMessage(targetSocket, size, &input[29]); //relay message to targetSocket
+    sendMessage(targetSocket, SIZE, INPUTMESSAGEPOINTER); //relay message to targetSocket
 }
 
 
