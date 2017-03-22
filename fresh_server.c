@@ -502,7 +502,7 @@ void broadcast(int curSocket, int bytesRead, char* input)
         if (FD_ISSET(j, &master)){
             // except the server
             if (j != listener){
-                if (sendMessage(clientList[j].socket, size, input) == -1){
+                if (sendMessage(j, size, input) == -1){
                     perror("send");
                 }
             }
