@@ -55,7 +55,66 @@ public class MultiThreadChatClient implements Runnable {
         /* Create a thread to read from the server. */
                 new Thread(new MultiThreadChatClient()).start();
                 while (!closed) {
-                    os.println(inputLine.readLine());
+                    Integer sizeOfMessage,sizeofOptions;
+                    String finalVersion,commandHolder,messageHolder,optionsHolder,messageSizeHolder,optionsSizeHolder, tempHolder;
+                    String userInput = inputLine.readLine();
+                    commandHolder = userInput.substring(0,1);
+
+                    switch (commandHolder) {
+
+                        case "b":
+                            messageHolder = userInput.substring(1,userInput.length());
+                            for (int i = 0; i < 20; i++) {
+                                commandHolder += "\0";
+                            }
+                            sizeOfMessage = messageHolder.length()-1;
+                            messageSizeHolder= sizeOfMessage.toString();
+                            finalVersion = commandHolder + messageSizeHolder;
+                            for(int i = messageSizeHolder.length(); i < 8; i++){
+                                finalVersion += "\0";
+                            }
+
+                            finalVersion += messageHolder;
+                            System.out.println("Whats being sent to the server ---- " + finalVersion);
+                            os.println(finalVersion);
+                            break;
+
+                        case "w":
+                            String [] wordsHolder;
+
+                            tempHolder = userInput.substring(1,userInput.length());
+                            wordsHolder = tempHolder.split(" ");
+                            if(wordsHolder[0].equals("")) {
+                                optionsHolder = wordsHolder[1];
+                                messageHolder = wordsHolder[2];
+                            }
+                            else {
+                                optionsHolder = wordsHolder[0];
+                                messageHolder = wordsHolder[1];
+                            }
+                            sizeofOptions = optionsHolder.length();
+                            sizeOfMessage = messageHolder.length();
+
+
+                            messageSizeHolder = sizeOfMessage.toString();
+                            finalVersion = commandHolder + optionsHolder;
+
+                            for(int i = sizeofOptions; i < 20; i++){
+                                finalVersion += "\0";
+                            }
+                            finalVersion += sizeOfMessage.toString();
+                            for(int i = messageSizeHolder.length(); i < 8; i++){
+                                finalVersion += "\0";
+                            }
+
+                            finalVersion += messageHolder;
+
+
+
+                            System.out.println("Whats being sent to the server ---- " + finalVersion);
+                            os.println(finalVersion);
+                            break;
+                    }
                 }
         /*
          * Close the output stream, close the input stream, close the socket.
@@ -84,54 +143,48 @@ public class MultiThreadChatClient implements Runnable {
         try {
             while ((responseLine = is.readLine()) != null) {
 
+                packet=responseLine.split("");
 
+                switch (responseLine.charAt(0)){
 
-                packet=responseLine.split("\0");
+                    case 'b':
 
-                switch (packet[0]){
-
-                    case "b":
-                        responseLine = packet[1];
                         System.out.println(responseLine);
                         break;
 
-                    case "c":
+                    case 'c':
                         while ((responseLine = is.readLine()) != null){
-                        if(responseLine.contains("460")){
-                            System.out.println();
-                            responseLine = is.readLine();
+                            if(responseLine.contains("460")){
+                                System.out.println();
+                                responseLine = is.readLine();
+                            }
+                            System.out.println(responseLine);
+                            break;
                         }
-                        System.out.println(responseLine);
-                    }
                         break;
 
-
-                    case "f":
+                    case 'f':
                         //Store the file onto the disk
 
                         break;
 
-                    case "w":
+                    case 'w':
                         //Store username, and message into responseline then print
-
+                        System.out.println(responseLine);
                         break;
 
                     default:
-                        System.out.println("ERROR");
-
-
+                        System.out.println(responseLine);
+                        break;
                 }
 
 
 
-
-                System.out.println(responseLine);
-                if (responseLine.indexOf("*** Bye") != -1)
-                    break;
             }
             closed = true;
         } catch (IOException e) {
             System.err.println("IOException:  " + e);
         }
     }
+
 }
