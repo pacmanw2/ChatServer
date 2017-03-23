@@ -36,13 +36,13 @@
 
 void *get_in_addr(struct sockaddr *sa);
 int messageProcessor(int curSocket, int bytesRead, char* INPUT);
-int sendMessage(int socket, int dataSIZE, char* data);
 void commands(int curSocket);
-void broadcast(int curSocket, int bytesRead, char* INPUT);
-void whisper(int curSocket, int bytesRead, char* INPUT);
-void name(int curSocket, int bytesRead, char* INPUT);
-void list(int curSocket, int bytesRead, char* OUTPUT);
-void switchRoom(int curSocket, int bytesRead, char* INPUT);
+void broadcast(int curSocket);
+void whisper(int curSocket);
+void name(int curSocket);
+void list(int curSocket, char type);
+void switchRoom(int curSocket);
+void roomMessage(int socket);
 void sendFile(int curSocket, int bytesRead, char* INPUT);
 
 
@@ -178,6 +178,7 @@ int addUser(char *ipaddr, int newSocket)
                                 //get_in_addr((struct sockaddr*)&remoteaddr),
                                // remoteIP, INET6_ADDRSTRLEN);
             CLIENTLIST[i].connected = 1;
+            strcpy(CLIENTLIST[i].room, "Waitroom");
             return 0;
         }
     }
@@ -185,7 +186,9 @@ int addUser(char *ipaddr, int newSocket)
     return 0;
 }
 
-
+/***************** DISCONNECT A USER *************************
+ *********************************************************************/
+ 
 int disconnectClient(int discSocket)
 {
     FD_CLR(discSocket, &master); // remove from master set
@@ -379,7 +382,7 @@ int messageProcessor(int curSocket, int bytesRead, char* INPUT)
         /* BROADCAST *  goes through CLIENTLIST, retransmits buffer to everyone who is connected  */
         case 'b':
             puts("BROADCAST MESSAGE RECEIVED");
-            broadcast(curSocket, bytesRead, INPUT);
+            broadcast(curSocket);
             break;
             
         /* COMMANDS */
@@ -409,58 +412,58 @@ int messageProcessor(int curSocket, int bytesRead, char* INPUT)
             
         /* CURRENT ROOM USER LIST */
         case 'h':
-            
+            list(curSocket, 'r');
             break;
             
         /* GLOBAL USER LIST */
         case 'l':
-            list(curSocket, bytesRead, OUTPUT);
+            list(curSocket, 'a');
             break;
         
         /* NAME */
         case 'n':
-            name(curSocket, sizeof(OUTPUT), OUTPUT);
+            name(curSocket);
             break;
             
         /* ROOM MESSAGE */
         case 'r':
-            
+            roomMessage(curSocket);
             break;
         
         /* SWITCH ROOMS */
         case 's':
-            switchRoom(curSocket, bytesRead, INPUT);
+            switchRoom(curSocket);
             break;
             
         /* WHISPER */
         case 'w':
-            whisper(curSocket, bytesRead, INPUT);
+            whisper(curSocket);
             break;
         
         /* DEFAULT */
         default:
             printf("ERROR: COMMAND NOT RECOGNIZED.");
             break;
-    }
+    }//end switch
 
     memset(INPUT, '\0', sizeof(INPUT));    //zero out the INPUT buffer
     memset(OUTPUT, '\0', sizeof(OUTPUT));    //zero out the OUTPUT buffer that was sent to client
     memset(SIZEARRAY, '\0', sizeof(SIZEARRAY));
     memset(OPTION, '\0', sizeof(OPTION));
     memset(PACKDATA, '\0', sizeof(PACKDATA));
+    SIZE = 0;
     //memset(client_str, 0, sizeof(client_str) );
     
     return 0;
 }
    
 
-void broadcast(int curSocket, int bytesRead, char* INPUT)
+void broadcast(int curSocket)
 {
     //'bytesRead' is basically the end of message (EOM) index
     //'INPUT' is the pointer to the char[] buffer
 
     printf("CMD: %c | OPTIONs: %s | SIZEs: %s | %d\n", CMD, OPTION, SIZEARRAY, SIZE);
-    printf("%i\n",bytesRead);
     
     int j;
 
@@ -525,12 +528,13 @@ and sends back [][SERVER][sizeof(success)]["name change success!"]
 ***Client receives this packet back, and displays it however they want.
 */
 
-void name(int curSocket, int bytesRead, char* INPUT)
+void name(int curSocket)
 {
     //make the string for a possible success
     char namechange[] = "Name change success";
     CMD = 'w';
     int i;
+    
     //go through whole client list, find socket == socket
     for (i = 0; i < CLIENT_LIMIT; i++){
         if (CLIENTLIST[i].connected && CLIENTLIST[i].socket == curSocket){
@@ -543,26 +547,42 @@ void name(int curSocket, int bytesRead, char* INPUT)
 }
 
 /*
-  'l': LIST ALL CLIENTS EVERYWHERE ON THE SERVER: same as how HERE? works - 
+  'l' and 'h': LIST ALL CLIENTS EVERYWHERE ON THE SERVER
+  * AND also handles room list (here? command)
    just send the list of ALL users connected to the server.
+   * Takes a socket() and the type, if type is 'r' it is a room list
 */
 
-void list(int curSocket, int bytesRead, char* INPUT)
+void list(int curSocket, char type)
 {
-    char holder[20 * CLIENT_LIMIT];
+    char holder[20 * CLIENT_LIMIT]; //holds list of users (built by list())
     char comma[] = ", ";
+    
     int i; 
     for(i = 0; i < CLIENT_LIMIT; i++)
     {
-        if(CLIENTLIST[i].connected != 0)
+        if(CLIENTLIST[i].connected != 0)    //if connected
         {
-            strncat(holder, CLIENTLIST[i].userName, 20);
-            strncat(holder, comma, 2);
+            if (type == 'r' )   //room list
+            {
+                if (strcmp(CLIENTLIST[i].room, OPTION) )
+                {
+                    strncat(holder, CLIENTLIST[i].userName, 20);
+                    strncat(holder, comma, 2);
+                }
+            }
+            else //add everyone
+            {
+                strncat(holder, CLIENTLIST[i].userName, 20);
+                strcat(holder, comma);
+            }
         }
     }   
     
-    whisper(curSocket, strlen(holder), holder);
+    sendMessage(curSocket, strlen(holder), holder);
 }
+
+
 
 
 /*
@@ -576,7 +596,7 @@ IF the room is valid - if valid, send back a success message
 if invalid, send an error message [][SERVER][sizeof(failure)]["failed to enter room, valid rooms are: room1,room2,room3]
 */
 
-void switchRoom(int curSocket, int bytesRead, char* INPUT)
+void switchRoom(int curSocket)
 {
     int i;
     char flag = 'f';
@@ -594,7 +614,7 @@ void switchRoom(int curSocket, int bytesRead, char* INPUT)
     if (flag == 'f')
     {
         char message[] = "Invalid Room";
-        whisper(curSocket, strlen(message), message);
+        sendMessage(curSocket, strlen(message), message);
         return;
     }
     
@@ -609,13 +629,34 @@ void switchRoom(int curSocket, int bytesRead, char* INPUT)
 }
 
 
+/* ROOM MESSAGE
+ * 
+ * Sends a message to a room
+ * 
+ */
+
+void roomMessage(int socket)
+{
+    int i;
+
+    for (i = 0; i < CLIENT_LIMIT; i++)  //go through the CLIENTLIST
+    {
+        if (strcmp(CLIENTLIST[i].room, OPTION)) //if the room is equal to room in OPTION
+        {
+            sendMessage(CLIENTLIST[i].socket, SIZE, INPUTMESSAGEPOINTER);   //mail the bastard
+        }
+    }
+}
+
+
+
 /*
 "whisper" send a message to a specified user.
 Example usage: /w starkiller45 hey man how's it going?
 Example packet: [w][starkiller45][sizeof(message)][Message]
 */
 //snprintf(SIZE,9,"%d",100000); //the sizeof(the remaining message the user sent)
-void whisper(int curSock, int bytesRead, char* INPUT)
+void whisper(int curSock)
 {
     //SIZE of message alredy set in global from messageUnpacker()
     
