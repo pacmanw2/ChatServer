@@ -43,7 +43,7 @@ void name(int curSocket);
 void list(int curSocket, char type);
 void switchRoom(int curSocket);
 void roomMessage(int socket);
-void sendFile(int curSocket, int bytesRead, char* INPUT);
+void sendFile(int curSocket, char flag);
 
 
 /******** Struct for a client ********/
@@ -402,12 +402,17 @@ int messageProcessor(int curSocket, int bytesRead, char* INPUT)
         
         /* GLOBAL FILE */
         case 'e':
-            // this command sends a file to everyone on the server
+            sendFile(curSocket, 'e');
             break;
             
         /* USER FILE */
         case 'f':
-            sendFile(curSocket, bytesRead, OUTPUT);
+            sendFile(curSocket, 'f');
+            break;
+            
+        /* ROOM FILE */
+        case 'g':
+            sendFile(curSocket, 'g');
             break;
             
         /* CURRENT ROOM USER LIST */
@@ -515,9 +520,30 @@ void commands(int curSocket)
 
 }
 
-void sendFile(int curSocket, int bytesRead, char* INPUT)
+
+/* SEND A FILE **********
+ * So, this just sets the outgoing message CMD to 'f' and then
+ * uses whisper(), broadcast(), or roomMessage to send the file.
+ * */
+ 
+void sendFile(int curSocket, char flag)
 {
+    CMD = 'f';
     
+    switch(flag)
+    {
+        case 'e':  //file for everyone
+            broadcast(curSocket);
+            break;
+        case 'f':   //file for one person
+            whisper(curSocket);
+            break;
+        case 'g':    //file for room
+            roomMessage(curSocket);
+            break;
+        default:
+            printf("file message improperly formatted");
+    }
 }
 
 /*
