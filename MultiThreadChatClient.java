@@ -56,27 +56,32 @@ public class MultiThreadChatClient implements Runnable {
                 new Thread(new MultiThreadChatClient()).start();
                 while (!closed) {
                     Integer sizeOfMessage,sizeofOptions;
-                    String finalVersion,commandHolder,messageHolder,optionsHolder,messageSizeHolder,optionsSizeHolder, tempHolder;
+                    String finalVersion,messageHolder,optionsHolder,messageSizeHolder,optionsSizeHolder, tempHolder;
+                    String commandHolder = "";
                     String userInput = inputLine.readLine();
-                    commandHolder = userInput.substring(0,1);
+
+                    if(userInput.length() > 1)
+                        commandHolder = userInput.substring(0,1);
+
 
                     switch (commandHolder) {
 
                         case "b":
-                            messageHolder = userInput.substring(1,userInput.length());
-                            for (int i = 0; i < 20; i++) {
-                                commandHolder += "\0";
-                            }
-                            sizeOfMessage = messageHolder.length()-1;
-                            messageSizeHolder= sizeOfMessage.toString();
-                            finalVersion = commandHolder + messageSizeHolder;
-                            for(int i = messageSizeHolder.length(); i < 8; i++){
-                                finalVersion += "\0";
-                            }
-
-                            finalVersion += messageHolder;
-                            System.out.println("Whats being sent to the server ---- " + finalVersion);
-                            os.println(finalVersion);
+//                            messageHolder = userInput.substring(1,userInput.length());
+//                            for (int i = 0; i < 20; i++) {
+//                                commandHolder += "\0";
+//                            }
+//                            sizeOfMessage = messageHolder.length()-1;
+//                            messageSizeHolder= sizeOfMessage.toString();
+//                            finalVersion = commandHolder + messageSizeHolder;
+//                            for(int i = messageSizeHolder.length(); i < 8; i++){
+//                                finalVersion += "\0";
+//                            }
+//
+//                            finalVersion += messageHolder;
+//                            System.out.println("Whats being sent to the server ---- " + finalVersion);
+//                            os.println(finalVersion);
+                            os.println(userInput);
                             break;
 
                         case "w":
@@ -93,7 +98,7 @@ public class MultiThreadChatClient implements Runnable {
                                 messageHolder = wordsHolder[1];
                             }
                             sizeofOptions = optionsHolder.length();
-                            sizeOfMessage = messageHolder.length();
+                            sizeOfMessage = messageHolder.length() + 1;
 
 
                             messageSizeHolder = sizeOfMessage.toString();
@@ -103,6 +108,7 @@ public class MultiThreadChatClient implements Runnable {
                                 finalVersion += "\0";
                             }
                             finalVersion += sizeOfMessage.toString();
+
                             for(int i = messageSizeHolder.length(); i < 8; i++){
                                 finalVersion += "\0";
                             }
@@ -114,7 +120,12 @@ public class MultiThreadChatClient implements Runnable {
                             System.out.println("Whats being sent to the server ---- " + finalVersion);
                             os.println(finalVersion);
                             break;
+
+                        default:
+
+                            os.println(userInput);
                     }
+
                 }
         /*
          * Close the output stream, close the input stream, close the socket.
