@@ -89,7 +89,7 @@ int sendMessage(int socket, int dataSIZE, char* data)
     
     int i, k, status;
     char stringSIZE[8];
-    
+    memset(stringSIZE, 0, sizeof stringSIZE);
     snprintf(stringSIZE, sizeof(stringSIZE), "%d", dataSIZE);
     
     
@@ -469,7 +469,7 @@ void broadcast(int curSocket, int bytesRead, char* INPUT)
         if (FD_ISSET(j, &master)){
             // except the server
             if (j != listener){
-                if (sendMessage(j, SIZE, &INPUT[29]) == -1){
+                if (sendMessage(j, SIZE, INPUTMESSAGEPOINTER) == -1){
                     perror("send");
                 }
             }
@@ -549,15 +549,19 @@ void name(int curSocket, int bytesRead, char* INPUT)
 
 void list(int curSocket, int bytesRead, char* INPUT)
 {
-    char holder[20 * CLIENT_LIMIT] = " ";
+    char holder[20 * CLIENT_LIMIT];
+    char comma[] = ", ";
     int i; 
     for(i = 0; i < CLIENT_LIMIT; i++)
     {
         if(CLIENTLIST[i].connected != 0)
+        {
             strncat(holder, CLIENTLIST[i].userName, 20);
+            strncat(holder, comma, 2);
+        }
     }   
     
-    whisper(curSocket, strlen(holder) + 1, holder);
+    whisper(curSocket, strlen(holder), holder);
 }
 
 
