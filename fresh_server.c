@@ -141,7 +141,7 @@ void messageUnpacker()
     {
         OPTION[k] = INPUT[i];
     }
-    OPTION[k - 1] = '\0';
+    //OPTION[k - 1] = '\0';
     
     // SIZE - next 8 bytes 
     for (i = 21, k = 0; i < 28; i++, k++)
@@ -149,7 +149,7 @@ void messageUnpacker()
         SIZEARRAY[k] = INPUT[i];
     }
 
-    SIZEARRAY[k - 1] = '\0';
+    //SIZEARRAY[k - 1] = '\0';
     SIZE = atoi(SIZEARRAY);
     
     //set INPUTMESSAGEPOINTER to be the start of the "message" portion of the array
@@ -172,7 +172,7 @@ int addUser(char *ipaddr, int newSocket)
         // go to the first client in the list that's not connected
         if (!CLIENTLIST[i].connected)
         {
-            strcpy(CLIENTLIST[i].userName, "NEWGUY\n");
+            strcpy(CLIENTLIST[i].userName, "NEWGUY");
             CLIENTLIST[i].socket = newSocket;
             strcpy(CLIENTLIST[i].ip_addr, ipaddr);// = inet_ntop(remoteaddr.ss_family,
                                 //get_in_addr((struct sockaddr*)&remoteaddr),
@@ -193,16 +193,16 @@ int disconnectClient(int discSocket)
 {
     FD_CLR(discSocket, &master); // remove from master set
     
-	int i;
-	for (i = 0; i < CLIENT_LIMIT; i++){
-		if (CLIENTLIST[i].socket == discSocket){
-			CLIENTLIST[i].connected = 0;
-			return 0;
-		}
-	}
+    int i;
+    for (i = 0; i < CLIENT_LIMIT; i++){
+        if (CLIENTLIST[i].socket == discSocket){
+            CLIENTLIST[i].connected = 0;
+            return 0;
+        }
+    }
     close(discSocket);
-	
-	return 1;
+    
+    return 1;
 }
 
 
@@ -451,11 +451,11 @@ int messageProcessor(int curSocket, int bytesRead, char* INPUT)
             break;
     }//end switch
 
-    memset(INPUT, '\0', sizeof(INPUT));    //zero out the INPUT buffer
-    memset(OUTPUT, '\0', sizeof(OUTPUT));    //zero out the OUTPUT buffer that was sent to client
-    memset(SIZEARRAY, '\0', sizeof(SIZEARRAY));
-    memset(OPTION, '\0', sizeof(OPTION));
-    memset(PACKDATA, '\0', sizeof(PACKDATA));
+    memset(INPUT, 0, sizeof(INPUT));    //zero out the INPUT buffer
+    memset(OUTPUT, 0, sizeof(OUTPUT));    //zero out the OUTPUT buffer that was sent to client
+    memset(SIZEARRAY, 0, sizeof(SIZEARRAY));
+    memset(OPTION, 0, sizeof(OPTION));
+    memset(PACKDATA, 0, sizeof(PACKDATA));
     SIZE = 0;
     //memset(client_str, 0, sizeof(client_str) );
     
@@ -606,6 +606,7 @@ void list(int curSocket, char type)
     }   
     
     sendMessage(curSocket, strlen(holder), holder);
+    memset(holder, 0, 20 * CLIENT_LIMIT);
 }
 
 
